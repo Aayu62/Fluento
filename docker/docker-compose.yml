@@ -1,0 +1,55 @@
+version: '3.9'
+
+services:
+  # ─── NestJS API ────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile.dev
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
+      - AI_SERVER_URL=http://ai-server:8000
+      - OLLAMA_URL=http://ollama:11434
+      - PIPER_URL=http://piper:5000
+    volumes:
+      - ../apps/api/src:/app/src
+    depends_on:
+      - ollama
+
+  # ─── Ollama (Qwen LLM) ─────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - '11434:11434'
+    volumes:
+      - ollama_data:/root/.ollama
+    # GPU support: uncomment if NVIDIA GPU available
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # ─── AI Server (Whisper + Piper) ───────────────────────────────────────────
+  ai-server:
+    build:
+      context: ./ai-server
+      dockerfile: Dockerfile
+    ports:
+      - '8000:8000'
+    volumes:
+      - ai_models:/models
+    environment:
+      - WHISPER_MODEL=base
+      - PIPER_VOICE=en_US-lessac-medium
+
+volumes:
+  ollama_data:
+  ai_models:

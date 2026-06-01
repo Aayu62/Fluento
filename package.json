@@ -1,0 +1,31 @@
+{
+  "name": "fluento",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "type-check": "turbo run type-check",
+    "dev:shared": "cd packages/shared && npx tsc -p tsconfig.build.json --watch",
+    "dev:api": "cd apps/api && npx nest start --watch",
+    "dev:web": "cd apps/web && npx next dev --port 3000",
+    "dev:mobile": "cd apps/mobile && npx expo start",
+    "build:shared": "cd packages/shared && npx tsc -p tsconfig.build.json"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0",
+    "prettier": "^3.3.0",
+    "eslint": "^9.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "typescript": "^5.5.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "^19.0.0"
+    }
+  }
+}

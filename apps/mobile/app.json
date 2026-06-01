@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Fluento",
+    "slug": "fluento",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "fluento",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F7F3EB"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fluento.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F7F3EB"
+      },
+      "package": "com.fluento.app"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#C4623B"
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

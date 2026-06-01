@@ -1,0 +1,85 @@
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── DESIGN.md Base Styles ─────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    --color-paper: #F7F3EB;
+    --color-paper-secondary: #F2EBDD;
+    --color-navy: #17324D;
+    --color-accent: #C4623B;
+    --color-success: #5D8A6A;
+    --color-border: #D8D0C0;
+    --color-warning: #C98A2E;
+    --color-error: #B85450;
+  }
+
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-navy);
+    font-family: 'IBM Plex Mono', 'Source Code Pro', monospace;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Libre Baskerville', Georgia, serif;
+    color: var(--color-navy);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-paper);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+  }
+}
+
+/* ─── DESIGN.md Background Grid ─────────────────────────────────────────── */
+
+@layer utilities {
+  .bg-grid {
+    background-image:
+      linear-gradient(var(--color-border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.15;
+  }
+
+  .bg-grid-overlay {
+    position: relative;
+  }
+
+  .bg-grid-overlay::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(var(--color-border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--color-border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .text-metadata {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-family: 'IBM Plex Mono', monospace;
+  }
+}
