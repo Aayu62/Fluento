@@ -36,12 +36,13 @@ export class ChallengesService {
       recommendations: result.recommendations,
     });
 
-    await this.db.updateRollingScores(userId, {
-      observation: result.scores.observation,
-      grammar: result.scores.grammar,
-      vocabulary: result.scores.vocabulary,
-      expressiveness: result.scores.expressiveness,
-    });
+    const imageScoreUpdates: Partial<Record<'observation' | 'grammar' | 'vocabulary' | 'expressiveness', number>> = {};
+    if (result.scores.observation !== undefined) imageScoreUpdates.observation = result.scores.observation;
+    if (result.scores.grammar !== undefined) imageScoreUpdates.grammar = result.scores.grammar;
+    if (result.scores.vocabulary !== undefined) imageScoreUpdates.vocabulary = result.scores.vocabulary;
+    if (result.scores.expressiveness !== undefined) imageScoreUpdates.expressiveness = result.scores.expressiveness;
+
+    await this.db.updateRollingScores(userId, imageScoreUpdates);
 
     await this.db.insert('score_history', {
       user_id: userId,
@@ -80,11 +81,12 @@ export class ChallengesService {
       recommendations: result.recommendations,
     });
 
-    await this.db.updateRollingScores(userId, {
-      fluency: result.scores.fluency,
-      grammar: result.scores.grammar,
-      vocabulary: result.scores.vocabulary,
-    });
+    const thoughtScoreUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary', number>> = {};
+    if (result.scores.fluency !== undefined) thoughtScoreUpdates.fluency = result.scores.fluency;
+    if (result.scores.grammar !== undefined) thoughtScoreUpdates.grammar = result.scores.grammar;
+    if (result.scores.vocabulary !== undefined) thoughtScoreUpdates.vocabulary = result.scores.vocabulary;
+
+    await this.db.updateRollingScores(userId, thoughtScoreUpdates);
 
     await this.db.insert('score_history', {
       user_id: userId,

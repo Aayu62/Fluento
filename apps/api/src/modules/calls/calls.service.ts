@@ -131,11 +131,12 @@ export class CallsService {
       recommendations: result.recommendations,
     });
 
-    await this.db.updateRollingScores(userId, {
-      fluency: result.scores.fluency,
-      grammar: result.scores.grammar,
-      vocabulary: result.scores.vocabulary,
-    });
+    const rollingUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary', number>> = {};
+    if (result.scores.fluency !== undefined) rollingUpdates.fluency = result.scores.fluency;
+    if (result.scores.grammar !== undefined) rollingUpdates.grammar = result.scores.grammar;
+    if (result.scores.vocabulary !== undefined) rollingUpdates.vocabulary = result.scores.vocabulary;
+
+    await this.db.updateRollingScores(userId, rollingUpdates);
 
     await this.streaks.recordActivity(userId);
     await this.db.logActivity(userId, 'call_completed', { call_id: callId });
@@ -162,6 +163,36 @@ export class CallsService {
       conversation_history: history,
       updated_at: new Date().toISOString(),
     });
+  }
+
+  async getCallTurns(userId: string, callId: string): Promise<unknown[]> {
+    const call = await this.db.findOne<Record<string, unknown>>(
+      'scheduled_calls',
+      { id: callId, user_id: userId },
+    );
+    if (!call) throw new NotFoundException('Call not found');
+
+    return (call['conversation_history'] as unknown[]) ?? [];
+  }
+
+  async declineCall(userId: string, callId: string): Promise<ScheduledCall> {
+    const call = await this.db.findOne<Record<string, unknown>>(
+      'scheduled_calls',
+      { id: callId, user_id: userId },
+    );
+    if (!call) throw new NotFoundException('Call not found');
+    if (call['status'] !== 'scheduled') {
+      throw new BadRequestException(`Call cannot be declined — status is ${call['status'] as string}`);
+    }
+
+    const updated = await this.db.update<Record<string, unknown>>(
+      'scheduled_calls',
+      { id: callId },
+      { status: 'declined', updated_at: new Date().toISOString() },
+    );
+
+    await this.db.logActivity(userId, 'call_declined', { call_id: callId });
+    return this.mapCall(updated);
   }
 
   async getReport(userId: string, callId: string): Promise<SessionReport> {

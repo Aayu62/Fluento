@@ -1,6 +1,7 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { ChallengesService } from './challenges.service';
+import { ImagesService } from '../images/images.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
@@ -9,6 +10,7 @@ import {
   ThoughtExerciseSubmissionSchema,
   type ImageSubmissionDto,
   type ThoughtExerciseSubmissionDto,
+  type Difficulty,
 } from '@fluento/shared';
 import type { User } from '@supabase/supabase-js';
 
@@ -17,7 +19,10 @@ import type { User } from '@supabase/supabase-js';
 @UseGuards(SupabaseAuthGuard)
 @Controller('challenges')
 export class ChallengesController {
-  constructor(private readonly challengesService: ChallengesService) {}
+  constructor(
+    private readonly challengesService: ChallengesService,
+    private readonly imagesService: ImagesService,
+  ) {}
 
   @Post('image/submit')
   submitImage(
@@ -33,5 +38,10 @@ export class ChallengesController {
     @Body(new ZodValidationPipe(ThoughtExerciseSubmissionSchema)) dto: ThoughtExerciseSubmissionDto,
   ) {
     return this.challengesService.submitThoughtExercise(user.id, dto);
+  }
+
+  @Get('image')
+  getImageChallenge(@Query('difficulty') difficulty?: Difficulty) {
+    return this.imagesService.getRandomChallenge(difficulty);
   }
 }

@@ -4,7 +4,12 @@ import { CallsService } from './calls.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
-import { ScheduleCallSchema, type ScheduleCallDto } from '@fluento/shared';
+import {
+  AddCallTurnSchema,
+  ScheduleCallSchema,
+  type AddCallTurnDto,
+  type ScheduleCallDto,
+} from '@fluento/shared';
 import type { User } from '@supabase/supabase-js';
 
 @ApiTags('calls')
@@ -40,6 +45,25 @@ export class CallsController {
   @Post(':id/start')
   startCall(@CurrentUser() user: User, @Param('id') id: string) {
     return this.callsService.startCall(user.id, id);
+  }
+
+  @Post(':id/decline')
+  declineCall(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.callsService.declineCall(user.id, id);
+  }
+
+  @Post(':id/turns')
+  addCallTurn(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body(new ZodValidationPipe(AddCallTurnSchema)) dto: AddCallTurnDto,
+  ) {
+    return this.callsService.addConversationTurn(user.id, id, dto.role, dto.content);
+  }
+
+  @Get(':id/turns')
+  getCallTurns(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.callsService.getCallTurns(user.id, id);
   }
 
   @Post(':id/end')

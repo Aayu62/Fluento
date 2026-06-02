@@ -43,6 +43,13 @@ export const ScheduleCallSchema = z.object({
 
 export type ScheduleCallDto = z.infer<typeof ScheduleCallSchema>;
 
+export const AddCallTurnSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1),
+});
+
+export type AddCallTurnDto = z.infer<typeof AddCallTurnSchema>;
+
 // ─── Image Study Submission ───────────────────────────────────────────────────
 
 export const ImageSubmissionSchema = z.object({
