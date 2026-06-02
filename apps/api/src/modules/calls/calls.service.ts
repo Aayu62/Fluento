@@ -188,7 +188,7 @@ export class CallsService {
     const updated = await this.db.update<Record<string, unknown>>(
       'scheduled_calls',
       { id: callId },
-      { status: 'declined', updated_at: new Date().toISOString() },
+      { status: 'missed', updated_at: new Date().toISOString() },
     );
 
     await this.db.logActivity(userId, 'call_declined', { call_id: callId });

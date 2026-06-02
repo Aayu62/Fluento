@@ -1,9 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TopicsController } from './topics.controller';
 import { TopicsService } from './topics.service';
+import { TopicsAliasController } from './topics.alias.controller';
+import { ChallengesModule } from '../challenges/challenges.module';
 
 @Module({
-  controllers: [TopicsController],
+  imports: [ChallengesModule],
+  controllers: [TopicsController, TopicsAliasController],
   providers: [TopicsService],
   exports: [TopicsService],
 })

@@ -2,6 +2,7 @@ import { Controller, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/c
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { AdminService } from './admin.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
+import { AdminGuard } from '../../common/guards/admin.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CreateTopicSchema, CreateScenarioSchema, type CreateTopicDto, type CreateScenarioDto } from '@fluento/shared';
 
@@ -13,7 +14,7 @@ class CreateImageBody {
 
 @ApiTags('admin')
 @ApiBearerAuth()
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(SupabaseAuthGuard, AdminGuard)
 @Controller('admin')
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
