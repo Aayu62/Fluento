@@ -78,7 +78,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
               <Link
-                href="/forgot-password"
+                href={{ pathname: '/forgot-password' }}
                 className="font-mono text-xs text-navy/50 underline-offset-2 hover:text-accent hover:underline"
               >
                 Forgot password?
@@ -102,7 +102,7 @@ export default function LoginPage() {
         <div className="mt-6 text-center">
           <p className="font-mono text-sm text-navy/60">
             Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-accent underline-offset-2 hover:underline">
+            <Link href={{ pathname: '/register' }} className="text-accent underline-offset-2 hover:underline">
               Create one
             </Link>
           </p>
