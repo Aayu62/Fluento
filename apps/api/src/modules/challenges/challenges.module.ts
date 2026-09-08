@@ -9,5 +9,6 @@ import { EvaluationModule } from '../evaluation/evaluation.module';
   imports: [ImagesModule, StreaksModule, EvaluationModule],
   controllers: [ChallengesController],
   providers: [ChallengesService],
+  exports: [ChallengesService],
 })
 export class ChallengesModule {}

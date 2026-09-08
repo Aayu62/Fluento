@@ -67,7 +67,14 @@ export default function HomeScreen() {
           <View style={styles.card}>
             <Text style={styles.cardLabel}>Current streak</Text>
             <Text style={styles.cardValue}>{dashboard?.streak.currentStreak ?? 0} days</Text>
-            <Text style={styles.cardMeta}>Best: {dashboard?.streak.bestStreak ?? 0}</Text>
+            <Text style={styles.cardMeta}>Best Record: {dashboard?.streak.bestStreak ?? 0} days</Text>
+            <View style={styles.milestoneBadge}>
+              <Text style={styles.milestoneBadgeText}>
+                {dashboard?.streak.currentStreak && dashboard.streak.currentStreak >= 7
+                  ? '🔥 7+ Day Master Unlocked'
+                  : `🎯 ${7 - (dashboard?.streak.currentStreak ?? 0)} days to 7-Day Master`}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -265,5 +272,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#4B5563',
     lineHeight: 20,
+  },
+  milestoneBadge: {
+    marginTop: 10,
+    backgroundColor: '#C4623B15',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  milestoneBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#C4623B',
+    textTransform: 'uppercase',
   },
 });

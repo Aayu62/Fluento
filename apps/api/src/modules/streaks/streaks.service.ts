@@ -21,6 +21,30 @@ export class StreaksService {
     return this.mapRow(row);
   }
 
+  async getStreakCalendar(
+    userId: string,
+    year: number,
+    month: number,
+  ): Promise<{ activeDates: string[] }> {
+    const startDate = new Date(year, month - 1, 1).toISOString();
+    const endDate = new Date(year, month, 0, 23, 59, 59).toISOString();
+
+    const { data } = await this.db.client
+      .from('session_reports')
+      .select('created_at')
+      .eq('user_id', userId)
+      .gte('created_at', startDate)
+      .lte('created_at', endDate);
+
+    const activeSet = new Set<string>();
+    for (const row of data ?? []) {
+      const dateStr = (row.created_at as string).split('T')[0];
+      if (dateStr) activeSet.add(dateStr);
+    }
+
+    return { activeDates: Array.from(activeSet) };
+  }
+
   // Called after any completed session (FSD §10)
   async recordActivity(userId: string): Promise<UserStreak> {
     const today = new Date().toISOString().split('T')[0]!;

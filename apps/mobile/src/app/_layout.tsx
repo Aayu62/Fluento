@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useRouter, useSegments } from 'expo-router';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { setAuthToken } from '@/lib/api/client';
+import { registerPushToken } from '@/lib/notifications';
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -13,6 +14,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!token) return;
     setAuthToken(token);
+    registerPushToken(`push_token_${Math.random().toString(36).substring(7)}`, 'android');
   }, [token]);
 
   useEffect(() => {

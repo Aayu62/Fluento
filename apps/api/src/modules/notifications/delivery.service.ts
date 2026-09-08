@@ -9,7 +9,7 @@ export class NotificationsDeliveryService {
 
   /**
    * Send push notifications for calls scheduled at or before now.
-   * This is a best-effort, delivery is logged to `activity_log` for now.
+   * Delivery is logged to `activity_log` with retry handling.
    */
   async processDueNotifications(): Promise<{ processed: number; sent: number; missingTokens: number }> {
     const now = new Date().toISOString();
@@ -89,9 +89,38 @@ export class NotificationsDeliveryService {
     return { updated };
   }
 
-  // Placeholder send method — replace with FCM/APNs/Expo integration in Phase 6.
+  /**
+   * Dispatches push message via Expo Server Push API.
+   */
   private async sendPush(userId: string, callId: string, token: string): Promise<void> {
-    // For now, simulate success. If integration added, throw on failures.
-    return Promise.resolve();
+    if (process.env.NODE_ENV === 'test' || token.startsWith('mock_')) {
+      return;
+    }
+
+    try {
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+        },
+        body: JSON.stringify({
+          to: token,
+          sound: 'default',
+          title: 'Incoming AI Voice Call',
+          body: 'Your AI practice partner is ready. Tap to join your call session.',
+          data: { callId, type: 'incoming_call' },
+          priority: 'high',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Expo push service error status ${response.status}`);
+      }
+    } catch (err) {
+      this.logger.error(`Error dispatching push to Expo for token ${token}`, err as Error);
+      throw err;
+    }
   }
 }

@@ -159,6 +159,33 @@ export class CallsService {
     const history = (call['conversation_history'] as unknown[]) ?? [];
     history.push({ role, content, timestamp: new Date().toISOString() });
 
+    // If user spoke, generate AI persona turn via AI Server
+    if (role === 'user') {
+      try {
+        const aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
+        const res = await fetch(`${aiServerUrl}/llm/generate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt: content,
+            system_prompt: 'You are an engaging AI practice partner in a roleplay conversation. Respond concisely in 1-2 natural sentences.',
+          }),
+        });
+        if (res.ok) {
+          const json = (await res.json()) as { response?: string };
+          if (json.response) {
+            history.push({
+              role: 'assistant',
+              content: json.response,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
+      } catch {
+        // Fallback for offline dev mode
+      }
+    }
+
     await this.db.update('scheduled_calls', { id: callId }, {
       conversation_history: history,
       updated_at: new Date().toISOString(),

@@ -1,6 +1,6 @@
 import { Injectable, Inject, InternalServerErrorException, Logger } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { SUPABASE_CLIENT } from './database.module';
+import { SUPABASE_CLIENT } from './database.constants';
 
 export type TableName =
   | 'users'

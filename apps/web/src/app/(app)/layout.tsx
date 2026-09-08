@@ -4,6 +4,9 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
+import { NavigationHeader } from '@/components/layout/navigation-header';
+import { IncomingCallModal } from '@/components/calls/incoming-call-modal';
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, token } = useAuthStore();
@@ -28,7 +31,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           opacity: 0.15,
         }}
       />
-      <div className="relative z-10">{children}</div>
+      <div className="relative z-10">
+        <NavigationHeader />
+        <IncomingCallModal />
+        {children}
+      </div>
     </div>
   );
 }

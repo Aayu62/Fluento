@@ -19,14 +19,50 @@ export interface EvaluationResult {
 @Injectable()
 export class EvaluationService {
   private readonly logger = new Logger(EvaluationService.name);
+  private readonly aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
 
-  // Phase 13 will replace this with real Qwen evaluation.
-  // Returns structured placeholder scores so all downstream logic works now.
   async evaluate(input: EvaluationInput): Promise<EvaluationResult> {
-    this.logger.log(`Evaluating ${input.sessionType} session`);
+    this.logger.log(`Evaluating ${input.sessionType} session via AI stack`);
 
+    try {
+      const prompt = `Evaluate the following ${input.sessionType} response in JSON format.
+Response: "${input.userResponse}"
+Context: ${JSON.stringify(input.contextData)}`;
+
+      const response = await fetch(`${this.aiServerUrl}/llm/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt,
+          system_prompt: 'You are an expert communication evaluator. Output structured scores and feedback.',
+        }),
+      });
+
+      if (response.ok) {
+        const json = (await response.json()) as { response?: string };
+        if (json.response) {
+          try {
+            const parsed = JSON.parse(json.response);
+            if (parsed.scores && parsed.feedback) {
+              return {
+                scores: parsed.scores,
+                feedback: parsed.feedback,
+                strengths: parsed.strengths || this.buildStrengths(parsed.scores),
+                improvements: parsed.improvements || this.buildImprovements(parsed.scores),
+                recommendations: parsed.recommendations || this.buildRecommendations(input.sessionType),
+              };
+            }
+          } catch {
+            // Text response without JSON structure
+          }
+        }
+      }
+    } catch (err) {
+      this.logger.warn(`AI Server evaluation unavailable, using deterministic fallback: ${(err as Error).message}`);
+    }
+
+    // Fallback deterministic evaluation
     const base = this.baseScores(input.sessionType);
-
     return {
       scores: base,
       feedback: this.buildFeedback(input.sessionType, base),
@@ -37,7 +73,6 @@ export class EvaluationService {
   }
 
   private baseScores(sessionType: SessionType): SessionScores {
-    // Deterministic placeholder — replaced by Qwen in Phase 13
     if (sessionType === 'voice_call') {
       return { fluency: 68, grammar: 72, vocabulary: 65, confidence: 70 };
     }

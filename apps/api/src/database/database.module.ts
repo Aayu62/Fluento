@@ -3,7 +3,9 @@ import { ConfigService } from '@nestjs/config';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { DatabaseService } from './database.service';
 
-export const SUPABASE_CLIENT = 'SUPABASE_CLIENT';
+import { SUPABASE_CLIENT } from './database.constants';
+
+export * from './database.constants';
 
 @Global()
 @Module({
