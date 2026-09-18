@@ -44,7 +44,7 @@ export const ScheduleCallSchema = z.object({
 export type ScheduleCallDto = z.infer<typeof ScheduleCallSchema>;
 
 export const AddCallTurnSchema = z.object({
-  role: z.enum(['user', 'assistant']),
+  role: z.literal('user'),
   content: z.string().min(1),
 });
 

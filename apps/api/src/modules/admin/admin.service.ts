@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { DatabaseService } from '../../database/database.service';
 import type { CallScenario, Image, Topic } from '@fluento/shared';
 import type { CreateTopicDto, CreateScenarioDto } from '@fluento/shared';
 
 @Injectable()
 export class AdminService {
+  private readonly logger = new Logger(AdminService.name);
+
   constructor(private readonly db: DatabaseService) {}
 
   // ─── Scenarios ─────────────────────────────────────────────────────────────
@@ -59,13 +62,49 @@ export class AdminService {
     await this.db.update('topics', { id }, { is_active: false });
   }
 
-  // ─── Images ────────────────────────────────────────────────────────────────
-  // Full image upload + vision processing implemented in Phase 12 (AI Integration)
-  // Admin can register an image URL with manually provided metadata for now
+  async createImage(file: Express.Multer.File, difficulty: string): Promise<Image> {
+    const ext = file.originalname?.split('.').pop() || 'jpg';
+    const filename = `${crypto.randomUUID()}.${ext}`;
+    
+    const { data: uploadData, error } = await this.db.client.storage
+      .from('images')
+      .upload(filename, file.buffer, { contentType: file.mimetype });
+      
+    if (error) {
+      throw new BadRequestException(`Failed to upload image: ${error.message}`);
+    }
+    
+    const { data: { publicUrl } } = this.db.client.storage
+      .from('images')
+      .getPublicUrl(filename);
+      
+    let metadata: Record<string, unknown> = {};
+    const aiServerUrl = process.env['OLLAMA_URL'] || 'http://localhost:11434';
+    try {
+      const res = await fetch(`${aiServerUrl}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'llava',
+          prompt: 'Describe this image in detail and list the main objects in it.',
+          images: [file.buffer.toString('base64')],
+          stream: false,
+        }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        metadata = { description: json.response };
+      } else {
+        this.logger.warn(`AI vision returned ${res.status}`);
+        metadata = { description: 'No description available (AI error)' };
+      }
+    } catch (e) {
+      this.logger.error('Failed to connect to AI for vision processing', e);
+      metadata = { description: 'Could not generate metadata (AI offline)' };
+    }
 
-  async createImage(imageUrl: string, difficulty: string, metadata: Record<string, unknown>): Promise<Image> {
     const row = await this.db.insert<Record<string, unknown>>('images', {
-      image_url: imageUrl,
+      image_url: publicUrl,
       difficulty,
       metadata,
     });

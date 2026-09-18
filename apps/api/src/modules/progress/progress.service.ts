@@ -3,6 +3,7 @@ import { DatabaseService } from '../../database/database.service';
 import { CallsService } from '../calls/calls.service';
 import { StreaksService } from '../streaks/streaks.service';
 import { TopicsService } from '../topics/topics.service';
+import { ImagesService } from '../images/images.service';
 import type {
   DashboardData,
   UserScores,
@@ -20,6 +21,7 @@ export class ProgressService {
     private readonly calls: CallsService,
     private readonly streaks: StreaksService,
     private readonly topics: TopicsService,
+    private readonly images: ImagesService,
   ) {}
 
   async getDashboard(userId: string): Promise<DashboardData> {
@@ -27,7 +29,7 @@ export class ProgressService {
       this.db.findOne<Record<string, unknown>>('user_scores', { user_id: userId }),
       this.streaks.getStreak(userId),
       this.calls.getUpcoming(userId),
-      this.getRecentSessions(userId),
+      this.getSessions(userId, 0, 10),
     ]);
 
     const scores = this.mapScores(scoresRow);
@@ -67,12 +69,16 @@ export class ProgressService {
     return { range, dataPoints, personalBests };
   }
 
-  private async getRecentSessions(userId: string): Promise<SessionReport[]> {
+  async getSessions(userId: string, offset = 0, limit = 10, type?: string): Promise<SessionReport[]> {
+    const match: Record<string, unknown> = { user_id: userId };
+    if (type && type !== 'all') {
+      match['session_type'] = type;
+    }
     const rows = await this.db.findMany<Record<string, unknown>>(
       'session_reports',
-      { user_id: userId },
+      match,
       '*',
-      { orderBy: 'created_at', ascending: false, limit: 10 },
+      { orderBy: 'created_at', ascending: false, limit, offset },
     );
     return rows.map((row) => ({
       id: row['id'] as string,
@@ -91,7 +97,7 @@ export class ProgressService {
   private async getRecommendation(weakestSkill: string) {
     try {
       if (weakestSkill === 'observation' || weakestSkill === 'expressiveness') {
-        return null; // Image study — returned from image module in Phase 8
+        return await this.images.getRandomChallenge();
       }
       return await this.topics.getRandomExercise();
     } catch {

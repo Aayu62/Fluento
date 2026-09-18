@@ -1,6 +1,5 @@
 'use client';
-
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,6 +10,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system';
 import { apiClient } from '@/lib/api/client';
 import type { ScheduledCall } from '@fluento/shared';
 
@@ -30,6 +31,8 @@ export default function MobileCallRoomScreen() {
   const [isEnding, setIsEnding] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isListening, setIsListening] = useState(false);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -53,6 +56,9 @@ export default function MobileCallRoomScreen() {
               content: initialTurn.content,
             });
             setTurns([initialTurn]);
+            if (isSpeakerOn) {
+              playTts(initialTurn.content);
+            }
           }
         }
       } catch {
@@ -71,6 +77,27 @@ export default function MobileCallRoomScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  const playTts = async (text: string) => {
+    try {
+      // Get auth token
+      const authHeader = apiClient.defaults.headers.common['Authorization'] as string;
+      const fileUri = FileSystem.cacheDirectory + `tts-${Date.now()}.wav`;
+
+      const downloadRes = await FileSystem.downloadAsync(
+        `${apiClient.defaults.baseURL}/calls/tts?text=${encodeURIComponent(text)}`,
+        fileUri,
+        { headers: authHeader ? { Authorization: authHeader } : {} }
+      );
+
+      if (downloadRes.status === 200) {
+        const { sound } = await Audio.Sound.createAsync({ uri: downloadRes.uri });
+        await sound.playAsync();
+      }
+    } catch (err) {
+      console.warn('TTS playback error', err);
+    }
+  };
+
   const handleSendTurn = async (contentToSend: string) => {
     if (!contentToSend.trim()) return;
 
@@ -79,16 +106,14 @@ export default function MobileCallRoomScreen() {
     setInputText('');
 
     try {
-      await apiClient.post(`/calls/${id}/turns`, { role: 'user', content: contentToSend });
-
-      setTimeout(async () => {
-        const aiTurn: Turn = {
-          role: 'assistant',
-          content: 'That sounds good! How would you describe the next step in this conversation?',
-        };
-        setTurns((prev) => [...prev, aiTurn]);
-        await apiClient.post(`/calls/${id}/turns`, { role: 'assistant', content: aiTurn.content });
-      }, 1000);
+      const res = await apiClient.post(`/calls/${id}/turns`, { role: 'user', content: contentToSend });
+      if (res.data) {
+        const assistantTurn = res.data as Turn;
+        setTurns((prev) => [...prev, assistantTurn]);
+        if (isSpeakerOn && assistantTurn.content) {
+          playTts(assistantTurn.content);
+        }
+      }
     } catch {
       // Catch
     }
@@ -103,6 +128,60 @@ export default function MobileCallRoomScreen() {
       router.replace(`/calls/${id}/report`);
     } finally {
       setIsEnding(false);
+    }
+  };
+
+  const startRecording = async () => {
+    if (isMuted) return;
+    try {
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status === 'granted') {
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+        
+        const { recording: newRecording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+        setRecording(newRecording);
+        setIsListening(true);
+      }
+    } catch (err) {
+      console.warn('Failed to start recording', err);
+    }
+  };
+
+  const stopRecording = async () => {
+    try {
+      if (!recording) return;
+      setIsListening(false);
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecording(null);
+
+      if (uri) {
+        const authHeader = apiClient.defaults.headers.common['Authorization'] as string;
+        const uploadRes = await FileSystem.uploadAsync(
+          `${apiClient.defaults.baseURL}/calls/stt`,
+          uri,
+          {
+            httpMethod: 'POST',
+            uploadType: FileSystem.FileSystemUploadType.MULTIPART,
+            fieldName: 'file',
+            headers: authHeader ? { Authorization: authHeader } : {}
+          }
+        );
+
+        if (uploadRes.status === 201 || uploadRes.status === 200) {
+          const body = JSON.parse(uploadRes.body);
+          if (body && body.text) {
+            handleSendTurn(body.text);
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to stop recording', err);
     }
   };
 
@@ -171,6 +250,14 @@ export default function MobileCallRoomScreen() {
         </View>
 
         <View style={styles.inputRow}>
+          <TouchableOpacity
+            style={[styles.micButton, isListening && styles.micButtonActive]}
+            onPressIn={startRecording}
+            onPressOut={stopRecording}
+            disabled={isMuted}
+          >
+            <Text style={styles.micButtonText}>{isListening ? '...' : 'Mic'}</Text>
+          </TouchableOpacity>
           <TextInput
             value={inputText}
             onChangeText={setInputText}
@@ -220,6 +307,9 @@ const styles = StyleSheet.create({
   endButton: { backgroundColor: '#B85450', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 8 },
   endButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12, textTransform: 'uppercase' },
   inputRow: { flexDirection: 'row', gap: 8 },
+  micButton: { backgroundColor: '#5D8A6A', borderRadius: 14, paddingHorizontal: 16, justifyContent: 'center' },
+  micButtonActive: { backgroundColor: '#C4623B' },
+  micButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },
   textInput: { flex: 1, backgroundColor: '#F7F3EB', borderRadius: 14, padding: 12, fontSize: 14, color: '#17324D' },
   sendButton: { backgroundColor: '#17324D', borderRadius: 14, paddingHorizontal: 16, justifyContent: 'center' },
   sendButtonText: { color: '#FFFFFF', fontWeight: '700', fontSize: 12 },

@@ -1,5 +1,5 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { ProgressService } from './progress.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -24,5 +24,19 @@ export class ProgressController {
     @Query('range') range: ProgressRange = 'weekly',
   ) {
     return this.progressService.getProgressHistory(user.id, range);
+  }
+
+  @Get('sessions')
+  @ApiOperation({ summary: 'Get paginated past sessions' })
+  getSessions(
+    @CurrentUser() user: User,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('type') type?: string,
+  ) {
+    const pageNum = parseInt(page, 10) || 1;
+    const limitNum = parseInt(limit, 10) || 10;
+    const offset = (pageNum - 1) * limitNum;
+    return this.progressService.getSessions(user.id, offset, limitNum, type);
   }
 }

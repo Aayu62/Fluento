@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
 import { StreaksService } from '../streaks/streaks.service';
 import { EvaluationService } from '../evaluation/evaluation.service';
@@ -18,6 +18,7 @@ export class ChallengesService {
     dto: ImageSubmissionDto,
   ): Promise<SessionReport> {
     const image = await this.db.findOne<Record<string, unknown>>('images', { id: dto.imageId });
+    if (!image) throw new NotFoundException('Image not found');
 
     const result = await this.evaluation.evaluate({
       sessionType: 'image_study',
@@ -26,35 +27,35 @@ export class ChallengesService {
       mode: dto.mode,
     });
 
-    const report = await this.db.insert<Record<string, unknown>>('session_reports', {
-      user_id: userId,
-      session_type: 'image_study',
-      score_json: result.scores,
-      feedback: result.feedback,
-      strengths: result.strengths,
-      improvements: result.improvements,
-      recommendations: result.recommendations,
-    });
-
     const imageScoreUpdates: Partial<Record<'observation' | 'grammar' | 'vocabulary' | 'expressiveness', number>> = {};
     if (result.scores.observation !== undefined) imageScoreUpdates.observation = result.scores.observation;
     if (result.scores.grammar !== undefined) imageScoreUpdates.grammar = result.scores.grammar;
     if (result.scores.vocabulary !== undefined) imageScoreUpdates.vocabulary = result.scores.vocabulary;
     if (result.scores.expressiveness !== undefined) imageScoreUpdates.expressiveness = result.scores.expressiveness;
 
-    await this.db.updateRollingScores(userId, imageScoreUpdates);
+    const scoreHistoryEntry = {
+      observation: result.scores.observation ?? 0,
+      grammar: result.scores.grammar ?? 0,
+      vocabulary: result.scores.vocabulary ?? 0,
+      expressiveness: result.scores.expressiveness ?? 0,
+    };
 
-    await this.db.insert('score_history', {
-      user_id: userId,
-      session_type: 'image_study',
-      observation: result.scores.observation,
-      grammar: result.scores.grammar,
-      vocabulary: result.scores.vocabulary,
-      expressiveness: result.scores.expressiveness,
-    });
+    const report = await this.db.submitSessionTx(
+      userId,
+      'image_study',
+      dto.imageId,
+      result.scores,
+      result.feedback,
+      result.strengths,
+      result.improvements,
+      result.recommendations,
+      imageScoreUpdates,
+      'image_study_completed',
+      { imageId: dto.imageId },
+      scoreHistoryEntry
+    );
 
     await this.streaks.recordActivity(userId);
-    await this.db.logActivity(userId, 'image_study_completed', { imageId: dto.imageId });
 
     return this.mapReport(report);
   }
@@ -64,6 +65,7 @@ export class ChallengesService {
     dto: ThoughtExerciseSubmissionDto,
   ): Promise<SessionReport> {
     const topic = await this.db.findOne<Record<string, unknown>>('topics', { id: dto.topicId });
+    if (!topic) throw new NotFoundException('Topic not found');
 
     const result = await this.evaluation.evaluate({
       sessionType: 'thought_exercise',
@@ -71,33 +73,37 @@ export class ChallengesService {
       contextData: { topicId: dto.topicId, mode: dto.mode, prompt: topic?.['prompt'] },
     });
 
-    const report = await this.db.insert<Record<string, unknown>>('session_reports', {
-      user_id: userId,
-      session_type: 'thought_exercise',
-      score_json: result.scores,
-      feedback: result.feedback,
-      strengths: result.strengths,
-      improvements: result.improvements,
-      recommendations: result.recommendations,
-    });
-
-    const thoughtScoreUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary', number>> = {};
+    const thoughtScoreUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary' | 'clarity' | 'argumentStrength', number>> = {};
     if (result.scores.fluency !== undefined) thoughtScoreUpdates.fluency = result.scores.fluency;
     if (result.scores.grammar !== undefined) thoughtScoreUpdates.grammar = result.scores.grammar;
     if (result.scores.vocabulary !== undefined) thoughtScoreUpdates.vocabulary = result.scores.vocabulary;
+    if (result.scores.clarity !== undefined) thoughtScoreUpdates.clarity = result.scores.clarity;
+    if (result.scores.argumentStrength !== undefined) thoughtScoreUpdates.argumentStrength = result.scores.argumentStrength;
 
-    await this.db.updateRollingScores(userId, thoughtScoreUpdates);
+    const scoreHistoryEntry = {
+      fluency: result.scores.fluency ?? 0,
+      grammar: result.scores.grammar ?? 0,
+      vocabulary: result.scores.vocabulary ?? 0,
+      clarity: result.scores.clarity ?? 0,
+      argumentStrength: result.scores.argumentStrength ?? 0,
+    };
 
-    await this.db.insert('score_history', {
-      user_id: userId,
-      session_type: 'thought_exercise',
-      fluency: result.scores.fluency,
-      grammar: result.scores.grammar,
-      vocabulary: result.scores.vocabulary,
-    });
+    const report = await this.db.submitSessionTx(
+      userId,
+      'thought_exercise',
+      dto.topicId,
+      result.scores,
+      result.feedback,
+      result.strengths,
+      result.improvements,
+      result.recommendations,
+      thoughtScoreUpdates,
+      'thought_exercise_completed',
+      { topicId: dto.topicId },
+      scoreHistoryEntry
+    );
 
     await this.streaks.recordActivity(userId);
-    await this.db.logActivity(userId, 'thought_exercise_completed', { topicId: dto.topicId });
 
     return this.mapReport(report);
   }

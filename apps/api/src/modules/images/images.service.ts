@@ -9,16 +9,19 @@ export class ImagesService {
   async getRandomChallenge(difficulty?: Difficulty): Promise<ImageChallenge> {
     let query = this.db.client
       .from('images')
-      .select('*')
+      .select('id')
       .eq('is_active', true);
 
     if (difficulty) query = query.eq('difficulty', difficulty);
 
-    // Random row via random ordering
-    const { data } = await query.limit(20);
-    if (!data || data.length === 0) throw new NotFoundException('No images available');
+    // Random row via two-step query
+    const { data: ids } = await query;
+    if (!ids || ids.length === 0) throw new NotFoundException('No images available');
 
-    const row = data[Math.floor(Math.random() * data.length)] as Record<string, unknown>;
+    const randomId = ids[Math.floor(Math.random() * ids.length)]!.id;
+    const { data: row } = await this.db.client.from('images').select('*').eq('id', randomId).single();
+    if (!row) throw new NotFoundException('Image not found');
+
     const image = this.mapImage(row);
 
     const modes: ChallengeMode[] = ['standard', 'forbidden_words', 'emotion', 'perspective'];

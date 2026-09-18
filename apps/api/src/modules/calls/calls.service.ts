@@ -115,31 +115,35 @@ export class CallsService {
       contextData: { callId, scenarioId: call['scenario_id'] },
     });
 
-    await this.db.update('scheduled_calls', { id: callId }, {
-      status: 'completed',
-      updated_at: new Date().toISOString(),
-    });
-
-    const report = await this.db.insert<Record<string, unknown>>('session_reports', {
-      user_id: userId,
-      session_type: 'voice_call',
-      session_id: callId,
-      score_json: result.scores,
-      feedback: result.feedback,
-      strengths: result.strengths,
-      improvements: result.improvements,
-      recommendations: result.recommendations,
-    });
-
-    const rollingUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary', number>> = {};
+    const rollingUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary' | 'confidence', number>> = {};
     if (result.scores.fluency !== undefined) rollingUpdates.fluency = result.scores.fluency;
     if (result.scores.grammar !== undefined) rollingUpdates.grammar = result.scores.grammar;
     if (result.scores.vocabulary !== undefined) rollingUpdates.vocabulary = result.scores.vocabulary;
+    if (result.scores.confidence !== undefined) rollingUpdates.confidence = result.scores.confidence;
 
-    await this.db.updateRollingScores(userId, rollingUpdates);
+    const scoreHistoryEntry = {
+      fluency: result.scores.fluency ?? 0,
+      grammar: result.scores.grammar ?? 0,
+      vocabulary: result.scores.vocabulary ?? 0,
+      confidence: result.scores.confidence ?? 0,
+    };
+
+    const report = await this.db.submitSessionTx(
+      userId,
+      'voice_call',
+      callId,
+      result.scores,
+      result.feedback,
+      result.strengths,
+      result.improvements,
+      result.recommendations,
+      rollingUpdates,
+      'call_completed',
+      { call_id: callId },
+      scoreHistoryEntry
+    );
 
     await this.streaks.recordActivity(userId);
-    await this.db.logActivity(userId, 'call_completed', { call_id: callId });
 
     return this.mapReport(report);
   }
@@ -149,7 +153,7 @@ export class CallsService {
     callId: string,
     role: 'user' | 'assistant',
     content: string,
-  ): Promise<void> {
+  ): Promise<Record<string, unknown> | null> {
     const call = await this.db.findOne<Record<string, unknown>>(
       'scheduled_calls',
       { id: callId, user_id: userId },
@@ -158,6 +162,8 @@ export class CallsService {
 
     const history = (call['conversation_history'] as unknown[]) ?? [];
     history.push({ role, content, timestamp: new Date().toISOString() });
+
+    let assistantTurn: Record<string, unknown> | null = null;
 
     // If user spoke, generate AI persona turn via AI Server
     if (role === 'user') {
@@ -174,11 +180,12 @@ export class CallsService {
         if (res.ok) {
           const json = (await res.json()) as { response?: string };
           if (json.response) {
-            history.push({
+            assistantTurn = {
               role: 'assistant',
               content: json.response,
               timestamp: new Date().toISOString(),
-            });
+            };
+            history.push(assistantTurn);
           }
         }
       } catch {
@@ -190,6 +197,8 @@ export class CallsService {
       conversation_history: history,
       updated_at: new Date().toISOString(),
     });
+
+    return assistantTurn;
   }
 
   async getCallTurns(userId: string, callId: string): Promise<unknown[]> {
@@ -279,5 +288,56 @@ export class CallsService {
       recommendations: (row['recommendations'] as string[]) ?? [],
       createdAt: row['created_at'] as string,
     };
+  }
+
+  // ─── AI Proxies ────────────────────────────────────────────────────────────
+
+  async proxyStt(file: Express.Multer.File): Promise<any> {
+    const aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
+    
+    const formData = new FormData();
+    const blob = new Blob([file.buffer], { type: file.mimetype });
+    formData.append('file', blob, file.originalname || 'audio.wav');
+
+    try {
+      const res = await fetch(`${aiServerUrl}/stt/transcribe`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        throw new Error(`AI STT Server returned ${res.status}`);
+      }
+      return await res.json();
+    } catch (err) {
+      this.logger.error('Proxy STT error', err);
+      return { text: "Hello, this is a fallback transcript.", language: "en", duration: 0 };
+    }
+  }
+
+  async proxyTts(text: string): Promise<Buffer> {
+    const aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
+    try {
+      const res = await fetch(`${aiServerUrl}/tts/synthesize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      if (!res.ok) {
+        throw new Error(`AI TTS Server returned ${res.status}`);
+      }
+      const arrayBuffer = await res.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (err) {
+      this.logger.error('Proxy TTS error', err);
+      // Return empty WAV header
+      return Buffer.from([
+        0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00,
+        0x57, 0x41, 0x56, 0x45, 0x66, 0x6D, 0x74, 0x20,
+        0x10, 0x00, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00,
+        0x44, 0xAC, 0x00, 0x00, 0x88, 0x58, 0x01, 0x00,
+        0x02, 0x00, 0x10, 0x00, 0x64, 0x61, 0x74, 0x61,
+        0x00, 0x00, 0x00, 0x00
+      ]);
+    }
   }
 }

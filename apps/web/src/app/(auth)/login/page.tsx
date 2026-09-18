@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { authApi } from '@/lib/api/auth.api';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { LoginSchema, type LoginDto } from '@fluento/shared';
+import { supabase } from '@/lib/supabase';
+import { useEffect } from 'react';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -40,6 +42,41 @@ export default function LoginPage() {
       router.push('/journal');
     },
   });
+
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        try {
+          const res = await authApi.syncGoogleAuth(session.access_token);
+          setAuth(
+            {
+              id: res.user.id,
+              email: res.user.email,
+              fullName: res.user.fullName,
+              createdAt: '',
+              updatedAt: '',
+            },
+            session.access_token,
+          );
+          localStorage.setItem('fluento_token', session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem('fluento_refresh', session.refresh_token);
+          }
+          router.push('/journal');
+        } catch (e) {
+          console.error('Failed to sync OAuth', e);
+        }
+      }
+    });
+    return () => authListener.subscription.unsubscribe();
+  }, [setAuth, router]);
+
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin + '/login' },
+    });
+  };
 
   const serverError =
     error instanceof Error ? error.message : error ? 'Login failed. Please try again.' : null;
@@ -96,6 +133,10 @@ export default function LoginPage() {
 
           <Button type="submit" loading={isPending} className="mt-2 w-full">
             Sign In
+          </Button>
+
+          <Button type="button" variant="outline" onClick={handleGoogleLogin} className="w-full">
+            Sign in with Google
           </Button>
         </form>
 

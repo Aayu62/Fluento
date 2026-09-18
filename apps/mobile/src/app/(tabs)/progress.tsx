@@ -21,7 +21,24 @@ export default function ProgressTabScreen() {
   const [selectedRange, setSelectedRange] = useState<ProgressRange>('weekly');
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [historyData, setHistoryData] = useState<ProgressHistory | null>(null);
+  const [paginatedSessions, setPaginatedSessions] = useState<SessionReport[]>([]);
+  const [sessionPage, setSessionPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSessionsLoading, setIsSessionsLoading] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    setIsSessionsLoading(true);
+    apiClient.get<SessionReport[]>(`/progress/sessions?page=${sessionPage}&limit=5`)
+      .then((res) => {
+        if (mounted && res.data) setPaginatedSessions(res.data);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (mounted) setIsSessionsLoading(false);
+      });
+    return () => { mounted = false; };
+  }, [sessionPage]);
 
   useEffect(() => {
     let mounted = true;
@@ -57,7 +74,7 @@ export default function ProgressTabScreen() {
     expressiveness: 78,
   };
 
-  const recentSessions: SessionReport[] = dashboard?.recentSessions ?? [];
+  const recentSessions: SessionReport[] = paginatedSessions;
 
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
@@ -136,8 +153,10 @@ export default function ProgressTabScreen() {
 
           {/* Session History Log */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Recent Practice Logs</Text>
-            {recentSessions.length > 0 ? (
+            <Text style={styles.cardTitle}>Practice Logs</Text>
+            {isSessionsLoading ? (
+              <ActivityIndicator color="#C4623B" style={{ marginVertical: 20 }} />
+            ) : recentSessions.length > 0 ? (
               recentSessions.map((s) => (
                 <View key={s.id} style={styles.sessionItem}>
                   <View style={styles.sessionHeader}>
@@ -154,6 +173,23 @@ export default function ProgressTabScreen() {
             ) : (
               <Text style={styles.emptyText}>No practice logs recorded yet.</Text>
             )}
+            <View style={styles.paginationRow}>
+              <TouchableOpacity
+                onPress={() => setSessionPage(p => Math.max(1, p - 1))}
+                disabled={sessionPage === 1}
+                style={styles.pageButton}
+              >
+                <Text style={[styles.pageButtonText, sessionPage === 1 && styles.pageButtonDisabled]}>Prev</Text>
+              </TouchableOpacity>
+              <Text style={styles.pageText}>Page {sessionPage}</Text>
+              <TouchableOpacity
+                onPress={() => setSessionPage(p => p + 1)}
+                disabled={recentSessions.length < 5}
+                style={styles.pageButton}
+              >
+                <Text style={[styles.pageButtonText, recentSessions.length < 5 && styles.pageButtonDisabled]}>Next</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       )}
@@ -189,4 +225,9 @@ const styles = StyleSheet.create({
   sessionDate: { fontSize: 11, color: '#6B7280' },
   sessionText: { fontSize: 13, color: '#4B5563', lineHeight: 18 },
   emptyText: { fontSize: 13, color: '#6B7280', fontStyle: 'italic' },
+  paginationRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 },
+  pageButton: { padding: 8 },
+  pageButtonText: { fontSize: 12, fontWeight: '700', color: '#17324D', textTransform: 'uppercase' },
+  pageButtonDisabled: { opacity: 0.3 },
+  pageText: { fontSize: 12, color: '#17324D' },
 });

@@ -10,8 +10,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-  },
+  experimental: {},
+  output: 'standalone',
   typedRoutes: true,
 };
 

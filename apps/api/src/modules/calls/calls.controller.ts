@@ -1,5 +1,7 @@
-import { Controller, Get, Post, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Get, Post, Body, Param, UseGuards, UseInterceptors, UploadedFile, Res, Query } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiConsumes, ApiOperation } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { CallsService } from './calls.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
@@ -43,13 +45,21 @@ export class CallsController {
   }
 
   @Post(':id/start')
-  startCall(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.callsService.startCall(user.id, id);
+  @ApiOperation({ summary: 'Start a scheduled voice call' })
+  startCall(@CurrentUser() user: User, @Param('id') callId: string) {
+    return this.callsService.startCall(user.id, callId);
   }
 
-  @Post(':id/decline')
-  declineCall(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.callsService.declineCall(user.id, id);
+  @Post(':id/cancel')
+  @ApiOperation({ summary: 'Cancel a scheduled voice call' })
+  cancelCall(@CurrentUser() user: User, @Param('id') callId: string) {
+    return this.callsService.cancelCall(user.id, callId);
+  }
+
+  @Post(':id/end')
+  @ApiOperation({ summary: 'End an active call and evaluate' })
+  endCall(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.callsService.endCall(user.id, id);
   }
 
   @Post(':id/turns')
@@ -66,13 +76,30 @@ export class CallsController {
     return this.callsService.getCallTurns(user.id, id);
   }
 
-  @Post(':id/end')
-  endCall(@CurrentUser() user: User, @Param('id') id: string) {
-    return this.callsService.endCall(user.id, id);
-  }
 
   @Get(':id/report')
   getReport(@CurrentUser() user: User, @Param('id') id: string) {
     return this.callsService.getReport(user.id, id);
+  }
+
+  @Post('stt')
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  async proxyStt(@UploadedFile() file: Express.Multer.File) {
+    return this.callsService.proxyStt(file);
+  }
+
+  @Post('tts')
+  async proxyTts(@Body('text') text: string, @Res() res: Response) {
+    const buffer = await this.callsService.proxyTts(text);
+    res.setHeader('Content-Type', 'audio/wav');
+    res.send(buffer);
+  }
+
+  @Get('tts')
+  async proxyTtsGet(@Query('text') text: string, @Res() res: Response) {
+    const buffer = await this.callsService.proxyTts(text);
+    res.setHeader('Content-Type', 'audio/wav');
+    res.send(buffer);
   }
 }

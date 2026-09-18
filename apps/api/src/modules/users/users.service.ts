@@ -143,6 +143,29 @@ export class UsersService {
     return { user, profile };
   }
 
+  async updateProfile(
+    userId: string,
+    dto: { fullName?: string; notificationPrefs?: Record<string, boolean> },
+  ): Promise<{ user: User; profile: UserProfile | null }> {
+    if (dto.fullName) {
+      const { error } = await this.supabase
+        .from('users')
+        .update({ full_name: dto.fullName, updated_at: new Date().toISOString() })
+        .eq('id', userId);
+      if (error) throw new InternalServerErrorException('Failed to update user name');
+    }
+
+    if (dto.notificationPrefs) {
+      const { error } = await this.supabase
+        .from('user_profiles')
+        .update({ notification_prefs: dto.notificationPrefs })
+        .eq('user_id', userId);
+      if (error) throw new InternalServerErrorException('Failed to update notification preferences');
+    }
+
+    return this.getMe(userId);
+  }
+
   private mapRow(row: Record<string, unknown>): User {
     return {
       id: row['id'] as string,

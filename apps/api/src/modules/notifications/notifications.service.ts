@@ -22,4 +22,8 @@ export class NotificationsService {
       createdAt: row['created_at'] as string,
     };
   }
+
+  async deletePushToken(userId: string, token: string): Promise<void> {
+    await this.db.client.from('push_tokens').delete().eq('user_id', userId).eq('token', token);
+  }
 }

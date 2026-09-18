@@ -27,8 +27,6 @@ export default function ActiveCallRoomPage({ params }: { params: Promise<{ id: s
   const [isListening, setIsListening] = useState(false);
 
   const turnsEndRef = useRef<HTMLDivElement>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
 
   // Fetch call details and initial turns
   useEffect(() => {
@@ -60,6 +58,10 @@ export default function ActiveCallRoomPage({ params }: { params: Promise<{ id: s
               content: initialTurn.content,
             });
             setTurns([initialTurn]);
+
+            if (isSpeakerOn) {
+              playTts(initialTurn.content);
+            }
           }
         }
       } catch {
@@ -87,50 +89,62 @@ export default function ActiveCallRoomPage({ params }: { params: Promise<{ id: s
     turnsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [turns]);
 
-  // Web Speech Recognition setup
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        recognition.lang = 'en-US';
+  // MediaRecorder setup for Audio
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          if (transcript) {
-            handleSendUserTurn(transcript);
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        setIsListening(false);
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        
+        // Send audio to STT
+        const formData = new FormData();
+        formData.append('file', audioBlob, 'audio.webm');
+        
+        try {
+          const res = await apiClient.post('/calls/stt', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          if (res.data && res.data.text) {
+            handleSendUserTurn(res.data.text);
           }
-          setIsListening(false);
-        };
+        } catch (err) {
+          console.error('STT failed:', err);
+        }
+      };
 
-        recognition.onerror = () => {
-          setIsListening(false);
-        };
-
-        recognition.onend = () => {
-          setIsListening(false);
-        };
-
-        recognitionRef.current = recognition;
-      }
+      mediaRecorder.start();
+      setIsListening(true);
+    } catch (err) {
+      console.error('Mic access denied', err);
+      alert('Microphone access is required to speak.');
     }
-  }, [callId]);
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
 
   const toggleVoiceInput = () => {
-    if (!recognitionRef.current) {
-      alert('Speech recognition is not supported in this browser. Please use text input below.');
-      return;
-    }
     if (isListening) {
-      recognitionRef.current.stop();
-      setIsListening(false);
+      stopRecording();
     } else {
-      setIsListening(true);
-      recognitionRef.current.start();
+      startRecording();
     }
   };
 
@@ -140,29 +154,33 @@ export default function ActiveCallRoomPage({ params }: { params: Promise<{ id: s
     setInputText('');
 
     try {
-      await apiClient.post(`/calls/${callId}/turns`, {
+      const res = await apiClient.post(`/calls/${callId}/turns`, {
         role: 'user',
         content: contentToSend,
       });
 
-      // Simulate AI response response turn
-      setTimeout(async () => {
-        const responses = [
-          `That makes sense. Could you elaborate a bit more on how you handled that?`,
-          `Great point. In this ${scenario?.category.replace('_', ' ') ?? 'scenario'}, how would you approach the next step?`,
-          `I understand. What specific experience guided your decision there?`,
-        ];
-        const aiContent = responses[Math.floor(Math.random() * responses.length)]!;
-        const aiTurn: Turn = { role: 'assistant', content: aiContent };
-
-        setTurns((prev) => [...prev, aiTurn]);
-        await apiClient.post(`/calls/${callId}/turns`, {
-          role: 'assistant',
-          content: aiContent,
-        });
-      }, 1200);
+      if (res.data) {
+        const assistantTurn = res.data as Turn;
+        setTurns((prev) => [...prev, assistantTurn]);
+        
+        // Play TTS for assistant
+        if (isSpeakerOn && assistantTurn.content) {
+          playTts(assistantTurn.content);
+        }
+      }
     } catch {
       // Fallback
+    }
+  };
+
+  const playTts = async (text: string) => {
+    try {
+      const res = await apiClient.post('/calls/tts', { text }, { responseType: 'blob' });
+      const audioUrl = URL.createObjectURL(res.data);
+      const audio = new Audio(audioUrl);
+      audio.play();
+    } catch (err) {
+      console.error('TTS Playback failed:', err);
     }
   };
 

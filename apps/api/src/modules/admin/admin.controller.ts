@@ -1,5 +1,6 @@
-import { Controller, Post, Put, Delete, Body, Param, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { Controller, Post, Put, Delete, Body, Param, UseGuards, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { ApiTags, ApiBearerAuth, ApiConsumes } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AdminService } from './admin.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { AdminGuard } from '../../common/guards/admin.guard';
@@ -7,9 +8,7 @@ import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { CreateTopicSchema, CreateScenarioSchema, type CreateTopicDto, type CreateScenarioDto } from '@fluento/shared';
 
 class CreateImageBody {
-  imageUrl!: string;
   difficulty!: string;
-  metadata!: Record<string, unknown>;
 }
 
 @ApiTags('admin')
@@ -53,8 +52,10 @@ export class AdminController {
 
   // Images
   @Post('images')
-  createImage(@Body() body: CreateImageBody) {
-    return this.adminService.createImage(body.imageUrl, body.difficulty, body.metadata);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file'))
+  createImage(@UploadedFile() file: Express.Multer.File, @Body() body: CreateImageBody) {
+    return this.adminService.createImage(file, body.difficulty);
   }
 
   @Delete('images/:id')

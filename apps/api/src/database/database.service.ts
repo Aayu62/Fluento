@@ -42,7 +42,7 @@ export class DatabaseService {
     table: TableName,
     match: Partial<Record<string, unknown>> = {},
     columns = '*',
-    options: { limit?: number; orderBy?: string; ascending?: boolean } = {},
+    options: { limit?: number; offset?: number; orderBy?: string; ascending?: boolean } = {},
   ): Promise<T[]> {
     let query = this.client.from(table).select(columns);
     for (const [key, value] of Object.entries(match)) {
@@ -53,6 +53,13 @@ export class DatabaseService {
     }
     if (options.limit) {
       query = query.limit(options.limit);
+    }
+    if (options.offset) {
+      // Supabase uses range(start, end)
+      // We already have limit, so range is offset to offset + limit - 1
+      const start = options.offset;
+      const end = options.limit ? start + options.limit - 1 : start + 1000;
+      query = query.range(start, end);
     }
     const { data, error } = await query;
     if (error) this.throw(table, 'findMany', error.message);
@@ -144,35 +151,37 @@ export class DatabaseService {
   // ─── Score update helper ───────────────────────────────────────────────────
   // TDD §15 — weighted rolling average: new = old * 0.8 + session * 0.2
 
-  async updateRollingScores(
+  async submitSessionTx(
     userId: string,
-    sessionScores: Partial<Record<'fluency' | 'grammar' | 'vocabulary' | 'observation' | 'expressiveness', number>>,
-  ): Promise<void> {
-    const current = await this.findOne<Record<string, number>>(
-      'user_scores',
-      { user_id: userId },
-      'fluency, grammar, vocabulary, observation, expressiveness',
-    );
+    sessionType: string,
+    sessionId: string,
+    scoreJson: any,
+    feedback: string,
+    strengths: string[],
+    improvements: string[],
+    recommendations: string[],
+    scoreUpdates: any,
+    activityEventType: string,
+    activityMetadata: any,
+    scoreHistoryEntry: any = null
+  ): Promise<any> {
+    const { data, error } = await this.client.rpc('submit_session_tx', {
+      p_user_id: userId,
+      p_session_type: sessionType,
+      p_session_id: sessionId,
+      p_score_json: scoreJson,
+      p_feedback: feedback,
+      p_strengths: strengths,
+      p_improvements: improvements,
+      p_recommendations: recommendations,
+      p_score_updates: scoreUpdates,
+      p_activity_event_type: activityEventType,
+      p_activity_metadata: activityMetadata,
+      p_score_history_entry: scoreHistoryEntry,
+    });
 
-    if (!current) return;
-
-    const updated: Record<string, number> = {};
-    const fields = ['fluency', 'grammar', 'vocabulary', 'observation', 'expressiveness'] as const;
-
-    for (const field of fields) {
-      const sessionVal = sessionScores[field];
-      if (sessionVal !== undefined) {
-        const oldVal = current[field] ?? 50;
-        updated[field] = Math.round((oldVal * 0.8 + sessionVal * 0.2) * 100) / 100;
-      }
-    }
-
-    if (Object.keys(updated).length === 0) return;
-
-    await this.client
-      .from('user_scores')
-      .update({ ...updated, updated_at: new Date().toISOString() })
-      .eq('user_id', userId);
+    if (error) this.throw('session_reports (RPC)', 'submitSessionTx', error.message);
+    return data;
   }
 
   // ─── Error helper ──────────────────────────────────────────────────────────

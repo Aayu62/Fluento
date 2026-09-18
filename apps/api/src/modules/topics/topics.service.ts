@@ -12,16 +12,19 @@ export class TopicsService {
   ): Promise<ThoughtExercise> {
     let query = this.db.client
       .from('topics')
-      .select('*')
+      .select('id')
       .eq('is_active', true);
 
     if (category) query = query.eq('category', category);
     if (difficulty) query = query.eq('difficulty', difficulty);
 
-    const { data } = await query.limit(20);
-    if (!data || data.length === 0) throw new NotFoundException('No topics available');
+    const { data: ids } = await query;
+    if (!ids || ids.length === 0) throw new NotFoundException('No topics available');
 
-    const row = data[Math.floor(Math.random() * data.length)] as Record<string, unknown>;
+    const randomId = ids[Math.floor(Math.random() * ids.length)]!.id;
+    const { data: row } = await this.db.client.from('topics').select('*').eq('id', randomId).single();
+    if (!row) throw new NotFoundException('Topic not found');
+
     const topic = this.mapTopic(row);
 
     const modes: ThoughtExerciseMode[] = ['monologue', 'quick_thinking', 'debate'];

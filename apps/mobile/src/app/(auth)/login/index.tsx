@@ -10,9 +10,11 @@ import {
 } from 'react-native';
 import { useState } from 'react';
 import { useRouter } from 'expo-router';
+import * as Linking from 'expo-linking';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { setAuthToken } from '@/lib/api/client';
+import { authApi } from '@/lib/api/auth.api';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -31,28 +33,42 @@ export default function LoginScreen() {
     setLoading(true);
     setError(null);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-
-    setLoading(false);
-
-    if (authError || !data.session) {
-      setError(authError?.message ?? 'Login failed');
-      return;
+    try {
+      const data = await authApi.login({ email, password });
+      setAuthToken(data.accessToken);
+      setAuth(
+        {
+          id: data.user.id,
+          email: data.user.email,
+          fullName: data.user.fullName,
+          createdAt: '',
+          updatedAt: '',
+        },
+        data.accessToken,
+      );
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      setError(e.response?.data?.message || e.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
+  }
 
-    const token = data.session.access_token;
-    setAuthToken(token);
-    setAuth(
-      {
-        id: data.user.id,
-        email: data.user.email ?? email,
-        fullName: (data.user.user_metadata['full_name'] as string | undefined) ?? '',
-        createdAt: '',
-        updatedAt: '',
-      },
-      token,
-    );
-    router.replace('/(tabs)');
+  async function handleGoogleLogin() {
+    setLoading(true);
+    setError(null);
+    try {
+      const redirectUrl = Linking.createURL('/(auth)/login');
+      const { error: authError } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: redirectUrl },
+      });
+      if (authError) throw authError;
+      // Auth state change listener in layout will handle the rest
+    } catch (e: any) {
+      setError(e.message || 'Google Login failed');
+      setLoading(false);
+    }
   }
 
   return (
@@ -113,6 +129,15 @@ export default function LoginScreen() {
           ) : (
             <Text style={styles.buttonText}>Sign In</Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.googleButton, loading && styles.buttonDisabled]}
+          onPress={handleGoogleLogin}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.googleButtonText}>Sign in with Google</Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => router.push('/(auth)/register')} style={styles.linkRow}>
@@ -201,6 +226,17 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: { opacity: 0.6 },
   buttonText: { fontFamily: 'IBM Plex Mono', fontSize: 14, fontWeight: '600', color: '#fff' },
+  googleButton: {
+    height: 44,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#D8D0C0',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+  },
+  googleButtonText: { fontFamily: 'IBM Plex Mono', fontSize: 14, fontWeight: '600', color: '#17324D' },
   linkRow: { marginTop: 20, alignItems: 'center' },
   linkText: { fontFamily: 'IBM Plex Mono', fontSize: 13, color: '#17324D99' },
   link: { color: '#C4623B' },

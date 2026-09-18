@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
@@ -27,5 +27,14 @@ export class UsersController {
     @Body(new ZodValidationPipe(OnboardingSchema)) dto: OnboardingDto,
   ) {
     return this.usersService.completeOnboarding(authUser.id, dto);
+  }
+
+  @Patch('me')
+  @ApiOperation({ summary: 'Update current user profile (name, notification prefs)' })
+  updateProfile(
+    @CurrentUser() authUser: User,
+    @Body() dto: { fullName?: string; notificationPrefs?: Record<string, boolean> },
+  ) {
+    return this.usersService.updateProfile(authUser.id, dto);
   }
 }

@@ -19,6 +19,9 @@ export const authApi = {
   login: (dto: LoginDto) =>
     apiClient.post<AuthResponse>('/auth/login', dto).then((r) => r.data),
 
+  syncGoogleAuth: (accessToken: string) =>
+    apiClient.post<{ success: boolean; user: any }>('/auth/sync', { accessToken }).then((r) => r.data),
+
   logout: () => apiClient.post('/auth/logout'),
 
   refresh: (refreshToken: string) =>

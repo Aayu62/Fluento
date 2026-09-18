@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ScrollView, View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { ScrollView, View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardData, ImageChallenge, ThoughtExercise } from '@fluento/shared';
 
@@ -18,10 +18,10 @@ export default function HomeScreen() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
-  useEffect(() => {
+  const fetchDashboard = () => {
     let mounted = true;
-
     apiClient
       .get<DashboardData>('/progress/dashboard')
       .then((response) => {
@@ -31,18 +31,41 @@ export default function HomeScreen() {
         }
       })
       .catch((err) => {
-        if (mounted) {
-          setError('Unable to load dashboard.');
-        }
+        if (mounted) setError('Unable to load dashboard.');
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
+    return mounted;
+  };
 
+  useEffect(() => {
+    let mounted = fetchDashboard();
     return () => {
       mounted = false;
     };
   }, []);
+
+  const handleCancelCall = async (callId: string) => {
+    Alert.alert('Cancel Call', 'Are you sure you want to cancel this call?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes',
+        style: 'destructive',
+        onPress: async () => {
+          setIsCancelling(true);
+          try {
+            await apiClient.post(`/calls/${callId}/cancel`);
+            fetchDashboard();
+          } catch (err) {
+            Alert.alert('Error', 'Failed to cancel call.');
+          } finally {
+            setIsCancelling(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const recommendation = dashboard?.recommendedChallenge as ImageChallenge | ThoughtExercise | null;
 
@@ -82,8 +105,19 @@ export default function HomeScreen() {
             {dashboard?.upcomingCall ? (
               <>
                 <Text style={styles.cardValue}>{dashboard.upcomingCall.scenario?.title ?? 'AI call session'}</Text>
-                <Text style={styles.cardMeta}>{dashboard.upcomingCall.scenario?.personaName ?? 'Conversation partner'}</Text>
-                <Text style={styles.cardMeta}>{formatDate(dashboard.upcomingCall.scheduledTime)}</Text>
+                <View style={styles.upcomingRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardMeta}>{dashboard.upcomingCall.scenario?.personaName ?? 'Conversation partner'}</Text>
+                    <Text style={styles.cardMeta}>{formatDate(dashboard.upcomingCall.scheduledTime)}</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => handleCancelCall(dashboard.upcomingCall!.id)}
+                    disabled={isCancelling}
+                    style={styles.cancelButton}
+                  >
+                    <Text style={styles.cancelButtonText}>{isCancelling ? 'Cancelling...' : 'Cancel'}</Text>
+                  </TouchableOpacity>
+                </View>
               </>
             ) : (
               <Text style={styles.cardText}>No scheduled sessions yet.</Text>
@@ -284,6 +318,24 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#C4623B',
+    textTransform: 'uppercase',
+  },
+  upcomingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cancelButton: {
+    backgroundColor: '#B8545015',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+  },
+  cancelButtonText: {
+    color: '#B85450',
+    fontSize: 12,
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
 });

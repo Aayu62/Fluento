@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Delete, Body, UseGuards, Param } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { NotificationsDeliveryService } from './delivery.service';
@@ -25,6 +25,11 @@ export class NotificationsController {
     @Body(new ZodValidationPipe(RegisterPushTokenSchema)) dto: RegisterPushTokenDto,
   ) {
     return this.notificationsService.registerPushToken(user.id, dto.token, dto.platform);
+  }
+
+  @Delete('push-token/:token')
+  deleteToken(@CurrentUser() user: User, @Param('token') token: string) {
+    return this.notificationsService.deletePushToken(user.id, token);
   }
 
   @Post('process')

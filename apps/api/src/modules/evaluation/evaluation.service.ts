@@ -42,7 +42,13 @@ Context: ${JSON.stringify(input.contextData)}`;
         const json = (await response.json()) as { response?: string };
         if (json.response) {
           try {
-            const parsed = JSON.parse(json.response);
+            let rawResponse = json.response;
+            if (rawResponse.startsWith('```json')) {
+              rawResponse = rawResponse.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+            } else if (rawResponse.startsWith('```')) {
+              rawResponse = rawResponse.replace(/^```\n?/, '').replace(/\n?```$/, '');
+            }
+            const parsed = JSON.parse(rawResponse);
             if (parsed.scores && parsed.feedback) {
               return {
                 scores: parsed.scores,
@@ -62,7 +68,7 @@ Context: ${JSON.stringify(input.contextData)}`;
     }
 
     // Fallback deterministic evaluation
-    const base = this.baseScores(input.sessionType);
+    const base = this.baseScores(input.sessionType, input.userResponse);
     return {
       scores: base,
       feedback: this.buildFeedback(input.sessionType, base),
@@ -72,14 +78,33 @@ Context: ${JSON.stringify(input.contextData)}`;
     };
   }
 
-  private baseScores(sessionType: SessionType): SessionScores {
+  private baseScores(sessionType: SessionType, userResponse?: string): SessionScores {
+    const wordCount = userResponse ? userResponse.split(/\s+/).length : 0;
+    const lengthBonus = Math.min(Math.floor(wordCount / 10) * 2, 10); // up to +10 based on length
+
     if (sessionType === 'voice_call') {
-      return { fluency: 68, grammar: 72, vocabulary: 65, confidence: 70 };
+      return { 
+        fluency: Math.min(68 + lengthBonus, 100), 
+        grammar: Math.min(72 + lengthBonus, 100), 
+        vocabulary: Math.min(65 + lengthBonus, 100), 
+        confidence: Math.min(70 + lengthBonus, 100) 
+      };
     }
     if (sessionType === 'image_study') {
-      return { observation: 74, grammar: 70, vocabulary: 68, expressiveness: 65 };
+      return { 
+        observation: Math.min(74 + lengthBonus, 100), 
+        grammar: Math.min(70 + lengthBonus, 100), 
+        vocabulary: Math.min(68 + lengthBonus, 100), 
+        expressiveness: Math.min(65 + lengthBonus, 100) 
+      };
     }
-    return { fluency: 70, grammar: 68, vocabulary: 72, clarity: 66, argumentStrength: 64 };
+    return { 
+      fluency: Math.min(70 + lengthBonus, 100), 
+      grammar: Math.min(68 + lengthBonus, 100), 
+      vocabulary: Math.min(72 + lengthBonus, 100), 
+      clarity: Math.min(66 + lengthBonus, 100), 
+      argumentStrength: Math.min(64 + lengthBonus, 100) 
+    };
   }
 
   private buildFeedback(sessionType: SessionType, scores: SessionScores): string {

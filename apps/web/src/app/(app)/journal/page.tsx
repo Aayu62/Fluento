@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import { ProgressChart } from '@/components/progress/progress-chart';
 import { StreakCalendar } from '@/components/streaks/streak-calendar';
@@ -18,6 +18,11 @@ import type {
 
 async function getDashboardData(): Promise<DashboardData> {
   const { data } = await apiClient.get<DashboardData>('/progress/dashboard');
+  return data;
+}
+
+async function getSessionsPage(page: number, type: SessionType | 'all'): Promise<SessionReport[]> {
+  const { data } = await apiClient.get<SessionReport[]>(`/progress/sessions?page=${page}&limit=5&type=${type}`);
   return data;
 }
 
@@ -73,8 +78,10 @@ function RecommendationCard({ challenge }: { challenge: ImageChallenge | Thought
 }
 
 export default function JournalPage() {
+  const queryClient = useQueryClient();
   const [selectedRange, setSelectedRange] = useState<ProgressRange>('weekly');
   const [sessionFilter, setSessionFilter] = useState<SessionType | 'all'>('all');
+  const [sessionPage, setSessionPage] = useState(1);
 
   const { data: dashboard, isLoading: isDashLoading, error: dashError } = useQuery({
     queryKey: ['dashboard'],
@@ -86,10 +93,14 @@ export default function JournalPage() {
     queryFn: () => getProgressHistory(selectedRange),
   });
 
+  const { data: paginatedSessions, isLoading: isSessionsLoading } = useQuery({
+    queryKey: ['progress-sessions', sessionPage, sessionFilter],
+    queryFn: () => getSessionsPage(sessionPage, sessionFilter),
+  });
+
   const scores = dashboard?.scores;
   const streak = dashboard?.streak;
   const upcomingCall = dashboard?.upcomingCall;
-  const recentSessions = dashboard?.recentSessions ?? [];
   const recommendation = dashboard?.recommendedChallenge ?? null;
 
   const scoreSummary = useMemo(
@@ -106,10 +117,21 @@ export default function JournalPage() {
     [scores],
   );
 
-  const filteredSessions = useMemo(() => {
-    if (sessionFilter === 'all') return recentSessions;
-    return recentSessions.filter((s) => s.sessionType === sessionFilter);
-  }, [recentSessions, sessionFilter]);
+  const displayedSessions = paginatedSessions ?? [];
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  const handleCancelCall = async (callId: string) => {
+    if (!confirm('Are you sure you want to cancel this call?')) return;
+    setIsCancelling(true);
+    try {
+      await apiClient.post(`/calls/${callId}/cancel`);
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    } catch (err) {
+      alert('Failed to cancel call.');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const personalBests = historyData?.personalBests ?? {
     fluency: 85,
@@ -270,7 +292,10 @@ export default function JournalPage() {
                     {(['all', 'voice_call', 'image_study', 'thought_exercise'] as const).map((filter) => (
                       <button
                         key={filter}
-                        onClick={() => setSessionFilter(filter)}
+                        onClick={() => {
+                          setSessionFilter(filter);
+                          setSessionPage(1);
+                        }}
                         className={`rounded-xl px-3 py-1.5 font-mono text-xs font-semibold uppercase transition-colors ${
                           sessionFilter === filter
                             ? 'bg-[#17324D] text-white'
@@ -284,8 +309,12 @@ export default function JournalPage() {
                 </div>
 
                 <div className="space-y-4">
-                  {filteredSessions.length > 0 ? (
-                    filteredSessions.map((session) => (
+                  {isSessionsLoading ? (
+                    <div className="rounded-2xl bg-[#F7F3EB]/60 p-6 text-center font-mono text-sm text-[#17324D]/60">
+                      Loading sessions...
+                    </div>
+                  ) : displayedSessions.length > 0 ? (
+                    displayedSessions.map((session) => (
                       <div key={session.id} className="rounded-2xl border border-[#D8D0C0]/60 bg-[#F7F3EB]/60 p-5 space-y-3">
                         <div className="flex items-center justify-between">
                           <span className="rounded-full bg-[#17324D]/10 px-3 py-1 font-mono text-xs uppercase tracking-wider text-[#17324D] font-bold">
@@ -302,9 +331,27 @@ export default function JournalPage() {
                     ))
                   ) : (
                     <div className="rounded-2xl bg-[#F7F3EB]/60 p-6 text-center font-mono text-sm text-[#17324D]/60">
-                      No session logs found for this filter.
+                      No session logs found.
                     </div>
                   )}
+                </div>
+                
+                <div className="flex justify-between mt-4">
+                  <button
+                    onClick={() => setSessionPage((p) => Math.max(1, p - 1))}
+                    disabled={sessionPage === 1}
+                    className="font-mono text-xs font-semibold uppercase text-[#17324D]/60 disabled:opacity-30"
+                  >
+                    &larr; Prev
+                  </button>
+                  <span className="font-mono text-xs text-[#17324D]">Page {sessionPage}</span>
+                  <button
+                    onClick={() => setSessionPage((p) => p + 1)}
+                    disabled={displayedSessions.length < 5}
+                    className="font-mono text-xs font-semibold uppercase text-[#17324D]/60 disabled:opacity-30"
+                  >
+                    Next &rarr;
+                  </button>
                 </div>
               </div>
 
@@ -335,9 +382,18 @@ export default function JournalPage() {
                     <p className="font-mono text-xs text-[#17324D]/70">
                       {upcomingCall.scenario?.personaRole ?? 'Roleplay partner'}
                     </p>
-                    <p className="font-mono text-xs text-[#17324D]/60 pt-2">
-                      Scheduled: {new Date(upcomingCall.scheduledTime).toLocaleString()}
-                    </p>
+                    <div className="flex items-center justify-between pt-2">
+                      <p className="font-mono text-xs text-[#17324D]/60">
+                        Scheduled: {new Date(upcomingCall.scheduledTime).toLocaleString()}
+                      </p>
+                      <button
+                        onClick={() => handleCancelCall(upcomingCall.id)}
+                        disabled={isCancelling}
+                        className="font-mono text-xs font-semibold uppercase text-[#B85450] hover:underline disabled:opacity-50"
+                      >
+                        {isCancelling ? 'Cancelling...' : 'Cancel'}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="rounded-2xl bg-[#F7F3EB] p-6 font-mono text-sm text-[#17324D]/60">

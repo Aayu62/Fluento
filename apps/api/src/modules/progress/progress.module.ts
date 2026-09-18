@@ -4,9 +4,10 @@ import { ProgressService } from './progress.service';
 import { CallsModule } from '../calls/calls.module';
 import { StreaksModule } from '../streaks/streaks.module';
 import { TopicsModule } from '../topics/topics.module';
+import { ImagesModule } from '../images/images.module';
 
 @Module({
-  imports: [CallsModule, StreaksModule, TopicsModule],
+  imports: [CallsModule, StreaksModule, TopicsModule, ImagesModule],
   controllers: [ProgressController],
   providers: [ProgressService],
 })

@@ -5,6 +5,7 @@ describe('AuthService', () => {
   let service: AuthService;
   let mockSupabase: any;
   let mockUsersService: any;
+  let mockConfigService: any;
 
   beforeEach(() => {
     mockSupabase = {
@@ -23,7 +24,14 @@ describe('AuthService', () => {
       findById: jest.fn(),
     };
 
-    service = new AuthService(mockSupabase, mockUsersService);
+    mockConfigService = {
+      getOrThrow: jest.fn().mockImplementation((key: string) => {
+        if (key === 'SUPABASE_URL') return 'https://mock.supabase.co';
+        return 'mock-value';
+      }),
+    };
+
+    service = new AuthService(mockSupabase, mockConfigService, mockUsersService);
   });
 
   describe('register', () => {

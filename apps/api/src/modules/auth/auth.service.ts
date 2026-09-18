@@ -6,7 +6,8 @@ import {
   Inject,
   Logger,
 } from '@nestjs/common';
-import { SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient, createClient } from '@supabase/supabase-js';
+import { ConfigService } from '@nestjs/config';
 import { SUPABASE_CLIENT } from '../../database/database.module';
 import { UsersService } from '../users/users.service';
 import type { RegisterDto, LoginDto } from '@fluento/shared';
@@ -25,10 +26,19 @@ export interface AuthTokenResponse {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  private readonly anonClient: SupabaseClient;
+
   constructor(
     @Inject(SUPABASE_CLIENT) private readonly supabase: SupabaseClient,
+    private readonly config: ConfigService,
     private readonly usersService: UsersService,
-  ) {}
+  ) {
+    this.anonClient = createClient(
+      this.config.getOrThrow<string>('SUPABASE_URL'),
+      this.config.getOrThrow<string>('SUPABASE_ANON_KEY'),
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+  }
 
   async register(dto: RegisterDto): Promise<AuthTokenResponse> {
     const { data, error } = await this.supabase.auth.admin.createUser({
@@ -57,7 +67,7 @@ export class AuthService {
     });
 
     // Sign in immediately to get tokens
-    const { data: session, error: signInError } = await this.supabase.auth.signInWithPassword({
+    const { data: session, error: signInError } = await this.anonClient.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
     });
@@ -78,7 +88,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthTokenResponse> {
-    const { data, error } = await this.supabase.auth.signInWithPassword({
+    const { data, error } = await this.anonClient.auth.signInWithPassword({
       email: dto.email,
       password: dto.password,
     });
@@ -105,7 +115,7 @@ export class AuthService {
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokenResponse> {
-    const { data, error } = await this.supabase.auth.refreshSession({ refresh_token: refreshToken });
+    const { data, error } = await this.anonClient.auth.refreshSession({ refresh_token: refreshToken });
 
     if (error || !data.session || !data.user) {
       throw new UnauthorizedException('Invalid or expired refresh token');
@@ -123,5 +133,38 @@ export class AuthService {
 
   async logout(accessToken: string): Promise<void> {
     await this.supabase.auth.admin.signOut(accessToken);
+  }
+
+  async forgotPassword(email: string): Promise<{ success: boolean }> {
+    const { error } = await this.anonClient.auth.resetPasswordForEmail(email, {
+      redirectTo: 'http://localhost:3000/reset-password',
+    });
+    if (error) {
+      this.logger.error('Forgot password failed', error.message);
+      throw new InternalServerErrorException('Failed to send reset email');
+    }
+    return { success: true };
+  }
+
+  async syncOAuthUser(accessToken: string): Promise<{ success: boolean; user: any }> {
+    const { data, error } = await this.anonClient.auth.getUser(accessToken);
+    if (error || !data.user) {
+      throw new UnauthorizedException('Invalid access token');
+    }
+
+    const email = data.user.email;
+    const fullName = (data.user.user_metadata['full_name'] as string | undefined) ?? data.user.user_metadata['name'] ?? 'User';
+
+    if (!email) {
+      throw new UnauthorizedException('OAuth provider did not return an email');
+    }
+
+    const user = await this.usersService.upsert({
+      id: data.user.id,
+      email,
+      fullName,
+    });
+
+    return { success: true, user };
   }
 }

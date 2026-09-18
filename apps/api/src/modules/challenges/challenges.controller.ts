@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { ChallengesService } from './challenges.service';
 import { ImagesService } from '../images/images.service';
 import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
@@ -16,7 +17,7 @@ import type { User } from '@supabase/supabase-js';
 
 @ApiTags('challenges')
 @ApiBearerAuth()
-@UseGuards(SupabaseAuthGuard)
+@UseGuards(SupabaseAuthGuard, ThrottlerGuard)
 @Controller('challenges')
 export class ChallengesController {
   constructor(
@@ -25,6 +26,7 @@ export class ChallengesController {
   ) {}
 
   @Post('image/submit')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   submitImage(
     @CurrentUser() user: User,
     @Body(new ZodValidationPipe(ImageSubmissionSchema)) dto: ImageSubmissionDto,
@@ -33,6 +35,7 @@ export class ChallengesController {
   }
 
   @Post('thought/submit')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   submitThought(
     @CurrentUser() user: User,
     @Body(new ZodValidationPipe(ThoughtExerciseSubmissionSchema)) dto: ThoughtExerciseSubmissionDto,
