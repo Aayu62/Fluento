@@ -4,7 +4,6 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { apiClient } from '@/lib/api/client';
 import { Loader2 } from 'lucide-react';
@@ -37,33 +36,29 @@ export default function ForgotPasswordPage() {
 
   if (success) {
     return (
-      <Card className="w-full">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl text-center">Check your email</CardTitle>
-          <CardDescription className="text-center">
+      <div className="w-full max-w-md">
+        <div className="rounded-card border border-border bg-paper p-8 shadow-card">
+          <h2 className="mb-2 font-serif text-2xl font-bold text-navy text-center">Check your email</h2>
+          <p className="mb-6 font-mono text-sm text-navy/60 text-center">
             We have sent a password reset link to {email}.
-          </CardDescription>
-        </CardHeader>
-        <CardFooter>
-          <Button asChild className="w-full">
-            <Link href="/login">Return to Login</Link>
-          </Button>
-        </CardFooter>
-      </Card>
+          </p>
+          <Link href="/login" className="block w-full">
+            <Button className="w-full">Return to Login</Button>
+          </Link>
+        </div>
+      </div>
     );
   }
 
   return (
-    <Card className="w-full">
-      <CardHeader className="space-y-1">
-        <CardTitle className="text-2xl text-center">Forgot Password</CardTitle>
-        <CardDescription className="text-center">
+    <div className="w-full max-w-md">
+      <div className="rounded-card border border-border bg-paper p-8 shadow-card">
+        <h2 className="mb-2 font-serif text-2xl font-bold text-navy text-center">Forgot Password</h2>
+        <p className="mb-6 font-mono text-sm text-navy/60 text-center">
           Enter your email to receive a password reset link
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
+        </p>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="email">Email</Label>
             <Input
               id="email"
@@ -75,21 +70,25 @@ export default function ForgotPasswordPage() {
               required
             />
           </div>
-          {error && <p className="text-sm text-destructive text-center">{error}</p>}
+          {error && (
+            <div className="mb-6 rounded-card border border-error/30 bg-error/5 px-4 py-3">
+              <p className="font-mono text-sm text-error">{error}</p>
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Send Reset Link
           </Button>
         </form>
-      </CardContent>
-      <CardFooter className="flex justify-center">
-        <p className="text-sm text-muted-foreground">
-          Remember your password?{' '}
-          <Link href="/login" className="text-primary hover:underline">
-            Login
-          </Link>
-        </p>
-      </CardFooter>
-    </Card>
+        <div className="mt-6 text-center">
+          <p className="font-mono text-sm text-navy/60">
+            Remember your password?{' '}
+            <Link href="/login" className="font-bold text-navy hover:underline">
+              Login
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
   );
 }

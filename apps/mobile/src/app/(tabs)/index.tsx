@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ScrollView, View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
+import { useFocusEffect } from 'expo-router';
 import { apiClient } from '@/lib/api/client';
 import type { DashboardData, ImageChallenge, ThoughtExercise } from '@fluento/shared';
 
@@ -20,7 +21,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
-  const fetchDashboard = () => {
+  const fetchDashboard = useCallback(() => {
     let mounted = true;
     apiClient
       .get<DashboardData>('/progress/dashboard')
@@ -31,20 +32,24 @@ export default function HomeScreen() {
         }
       })
       .catch((err) => {
-        if (mounted) setError('Unable to load dashboard.');
+        if (mounted && !dashboard) setError('Unable to load dashboard.');
       })
       .finally(() => {
         if (mounted) setIsLoading(false);
       });
-    return mounted;
-  };
-
-  useEffect(() => {
-    let mounted = fetchDashboard();
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [dashboard]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const abort = fetchDashboard();
+      return () => {
+        abort();
+      };
+    }, [fetchDashboard])
+  );
 
   const handleCancelCall = async (callId: string) => {
     Alert.alert('Cancel Call', 'Are you sure you want to cancel this call?', [
@@ -178,7 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F3EB',
   },
   content: {
-    padding: 20,
+    padding: 24,
   },
   sectionLabel: {
     fontSize: 11,

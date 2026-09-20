@@ -1,7 +1,7 @@
 -- ============================================================
--- Migration: 003_seed_data
--- Description: Initial call scenarios and speaking topics
--- Run in: Supabase SQL Editor (after 002)
+-- File: 01_seed.sql
+-- Description: Initial call scenarios and thought exercise topics
+-- Run in: Supabase SQL Editor (after 00_schema)
 -- ============================================================
 
 -- ─── Call Scenarios ───────────────────────────────────────────────────────────
@@ -35,55 +35,22 @@ insert into public.call_scenarios (title, category, persona_name, persona_role, 
 ('Travel Experience Sharing', 'daily_conversation', 'Sofia', 'Travel Enthusiast', 'intermediate',
 'You are Sofia, a passionate traveller who loves hearing about other people''s travel experiences. Start by asking the user about the most memorable place they have visited. Ask follow-up questions about the culture, food, and experiences. Share brief reactions. Evaluate descriptive vocabulary, fluency, and expressiveness.');
 
--- ─── Speaking Topics ──────────────────────────────────────────────────────────
 
-insert into public.topics (title, category, difficulty, prompt) values
+-- ─── Speaking Topics (V2) ─────────────────────────────────────────────────────
 
--- Personal
-('My Dream Job', 'personal', 'beginner',
-'Describe your dream job in detail. What would you be doing every day? Why does this role excite you? What skills would you need to succeed in it?'),
+insert into public.topics (title, category, difficulty, prompt, format) values
 
-('My Hometown', 'personal', 'beginner',
-'Talk about the place where you grew up. Describe what it looks like, what makes it special, and how it has shaped who you are today.'),
+-- Monologues
+('My Dream Job', 'personal', 'beginner', 'Describe your dream job in detail. What would you be doing every day? Why does this role excite you? What skills would you need to succeed in it?', 'monologue'),
+('My Hometown', 'personal', 'beginner', 'Talk about the place where you grew up. Describe what it looks like, what makes it special, and how it has shaped who you are today.', 'monologue'),
+('A Person Who Inspired Me', 'personal', 'intermediate', 'Talk about someone who has had a significant impact on your life. Who are they, what did they do, and how did they change your perspective or direction?', 'monologue'),
+('My Career Goals for the Next 5 Years', 'professional', 'beginner', 'Talk about where you see yourself professionally in the next five years. What skills do you want to develop? What kind of work do you want to be doing?', 'monologue'),
+('My Leadership Style', 'professional', 'advanced', 'Describe how you lead people or projects. What principles guide your decisions? Share a specific example where your leadership made a difference.', 'monologue'),
+('Describe a Perfect Day', 'general', 'beginner', 'Walk us through what your perfect day would look like from morning to night. Be specific and descriptive — where are you, who are you with, and what are you doing?', 'monologue'),
 
-('A Person Who Inspired Me', 'personal', 'intermediate',
-'Talk about someone who has had a significant impact on your life. Who are they, what did they do, and how did they change your perspective or direction?'),
-
-('My Biggest Achievement', 'personal', 'intermediate',
-'Describe an achievement you are genuinely proud of. What was the challenge, what did you do, and what did you learn from the experience?'),
-
--- Professional
-('Why Should We Hire You', 'professional', 'intermediate',
-'You have 2 minutes to convince a hiring panel why you are the best candidate for your dream role. Talk about your strengths, experience, and what unique value you bring.'),
-
-('My Leadership Style', 'professional', 'advanced',
-'Describe how you lead people or projects. What principles guide your decisions? Share a specific example where your leadership made a difference.'),
-
-('Handling Workplace Conflict', 'professional', 'intermediate',
-'Describe a situation where you faced a conflict at work or in a team. How did you approach it, what did you say, and what was the outcome?'),
-
-('My Career Goals for the Next 5 Years', 'professional', 'beginner',
-'Talk about where you see yourself professionally in the next five years. What skills do you want to develop? What kind of work do you want to be doing?'),
-
--- Opinion
-('AI in Education', 'opinion', 'intermediate',
-'Should artificial intelligence be used to teach students in schools? Share your opinion, give reasons, and consider both the benefits and the risks.'),
-
-('Social Media Impact on Society', 'opinion', 'intermediate',
-'Has social media made society better or worse? Take a clear position and defend it with specific examples and reasoning.'),
-
-('Remote Work vs Office Work', 'opinion', 'beginner',
-'Which is better — working from home or working from an office? Share your view and explain why, considering productivity, collaboration, and work-life balance.'),
-
-('Should College Education Be Free', 'opinion', 'advanced',
-'Should governments make college and university education completely free for all citizens? Argue your position clearly and address counterarguments.'),
-
--- General
-('Describe a Perfect Day', 'general', 'beginner',
-'Walk us through what your perfect day would look like from morning to night. Be specific and descriptive — where are you, who are you with, and what are you doing?'),
-
-('If You Could Change One Thing About the World', 'general', 'intermediate',
-'If you had the power to change one thing about the world, what would it be and why? Explain the problem you are solving and the impact your change would have.'),
-
-('Technology and Human Connection', 'general', 'advanced',
-'Has technology brought people closer together or pushed them further apart? Use specific examples to support your argument and acknowledge the opposing view.');
+-- Debates
+('Remote Work vs Office Work', 'opinion', 'beginner', 'Argue your position clearly: Which is better — working from home or working from an office?', 'debate'),
+('AI in Education', 'technology', 'intermediate', 'Should artificial intelligence be used to teach students in schools? Defend your position.', 'debate'),
+('Social Media Impact on Society', 'technology', 'intermediate', 'Has social media made society better or worse? Defend your position with specific examples.', 'debate'),
+('Should College Education Be Free', 'opinion', 'advanced', 'Should governments make college and university education completely free for all citizens? Argue your position clearly.', 'debate'),
+('Technology and Human Connection', 'technology', 'advanced', 'Has technology brought people closer together or pushed them further apart? Use specific examples to support your argument.', 'debate');

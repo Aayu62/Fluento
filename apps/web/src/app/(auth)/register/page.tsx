@@ -141,7 +141,7 @@ export default function RegisterPage() {
             Create Account
           </Button>
 
-          <Button type="button" variant="outline" onClick={handleGoogleLogin} className="w-full">
+          <Button type="button" variant="secondary" onClick={handleGoogleLogin} className="w-full">
             Sign up with Google
           </Button>
         </form>

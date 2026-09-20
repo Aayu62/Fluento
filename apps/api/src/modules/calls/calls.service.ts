@@ -211,6 +211,26 @@ export class CallsService {
     return (call['conversation_history'] as unknown[]) ?? [];
   }
 
+  async cancelCall(userId: string, callId: string): Promise<ScheduledCall> {
+    const call = await this.db.findOne<Record<string, unknown>>(
+      'scheduled_calls',
+      { id: callId, user_id: userId },
+    );
+    if (!call) throw new NotFoundException('Call not found');
+    if (call['status'] !== 'scheduled') {
+      throw new BadRequestException(`Call cannot be cancelled — status is ${call['status'] as string}`);
+    }
+
+    const updated = await this.db.update<Record<string, unknown>>(
+      'scheduled_calls',
+      { id: callId },
+      { status: 'cancelled', updated_at: new Date().toISOString() },
+    );
+
+    await this.db.logActivity(userId, 'call_cancelled', { call_id: callId });
+    return this.mapCall(updated);
+  }
+
   async declineCall(userId: string, callId: string): Promise<ScheduledCall> {
     const call = await this.db.findOne<Record<string, unknown>>(
       'scheduled_calls',

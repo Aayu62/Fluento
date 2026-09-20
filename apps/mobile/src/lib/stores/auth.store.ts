@@ -23,7 +23,7 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       refreshToken: null,
       isAuthenticated: false,
-      setAuth: (user, token, refreshToken) => set({ user, token, refreshToken, isAuthenticated: true }),
+      setAuth: (user, token, refreshToken) => set({ user, token, refreshToken: refreshToken ?? null, isAuthenticated: true }),
       setProfile: (profile) => set({ profile }),
       clearAuth: async () => {
         // Try to delete push token before clearing
@@ -41,7 +41,7 @@ export const useAuthStore = create<AuthState>()(
     {
       name: 'fluento_auth',
       storage: createJSONStorage(() => AsyncStorage),
-      partialize: (state) => ({ token: state.token, refreshToken: state.refreshToken, user: state.user }),
+      partialize: (state) => ({ token: state.token, refreshToken: state.refreshToken, user: state.user, isAuthenticated: state.isAuthenticated }),
     }
   )
 );

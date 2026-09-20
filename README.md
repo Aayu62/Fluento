@@ -128,11 +128,8 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 1. Configure your Supabase project instance or local Supabase CLI database.
 2. Execute the SQL database migration files in numerical order:
-   - `apps/api/src/database/migrations/001_auth_and_users.sql`
-   - `apps/api/src/database/migrations/002_content_and_sessions.sql`
-   - `apps/api/src/database/migrations/003_fix_declined_to_missed.sql`
-3. Execute the initial seed data script to populate default scenarios, topics, and images:
-   - `apps/api/src/database/migrations/003_seed_data.sql`
+   - `apps/api/src/database/setup/00_schema.sql`
+   - `apps/api/src/database/setup/01_seed.sql`
 
 ## Running the Project
 

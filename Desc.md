@@ -109,7 +109,7 @@ fluento/
 
 ## 3. Database Schema & Data Models
 
-The database schema is defined across 3 SQL migration scripts in `apps/api/src/database/migrations/`:
+The database schema is defined in `apps/api/src/database/setup/`:
 
 ```mermaid
 erDiagram
@@ -202,7 +202,7 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 ### Step 4: Run Database Migrations & Seed Data
 
-In your Supabase SQL Editor (or via Supabase CLI), run the migration SQL scripts located in `apps/api/src/database/migrations/` in numerical order:
+In your Supabase SQL Editor (or via Supabase CLI), run the setup SQL scripts located in `apps/api/src/database/setup/` in numerical order:
 
 1. Execute `001_auth_and_users.sql` (Creates users, profiles, scores, streaks tables & RLS policies).
 2. Execute `002_content_and_sessions.sql` (Creates scenarios, calls, reports, images, topics tables).

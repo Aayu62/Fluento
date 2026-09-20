@@ -3,11 +3,11 @@ import { View, Text, TextInput, StyleSheet, TouchableOpacity, Switch, Alert, Act
 import { useRouter } from 'expo-router';
 import { apiClient, setAuthToken } from '@/lib/api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useAuthStore } from '@/store/auth';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const logout = useAuthStore((s) => s.logout);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +58,7 @@ export default function SettingsScreen() {
   const handleSignOut = async () => {
     await AsyncStorage.removeItem('fluento_auth');
     setAuthToken(null);
-    logout();
+    clearAuth();
     router.replace('/(auth)/login');
   };
 
@@ -72,7 +72,12 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>Settings</Text>
+      <View style={styles.headerRow}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <Text style={styles.header}>Settings</Text>
+      </View>
       
       <View style={styles.card}>
         <Text style={styles.label}>Email Address (Read-only)</Text>
@@ -130,9 +135,12 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F7F3EB', padding: 20, paddingTop: 60 },
+  container: { flex: 1, backgroundColor: '#F7F3EB', paddingHorizontal: 32, paddingTop: 40, paddingBottom: 40 },
   center: { justifyContent: 'center', alignItems: 'center' },
-  header: { fontSize: 28, fontWeight: '700', color: '#17324D', marginBottom: 20 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+  backButton: { marginRight: 16, padding: 8, backgroundColor: '#FFFFFF', borderRadius: 8 },
+  backButtonText: { color: '#17324D', fontWeight: '600' },
+  header: { fontSize: 32, fontWeight: '800', color: '#17324D' },
   card: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 20, borderWidth: 1, borderColor: '#D8D0C0' },
   label: { fontSize: 12, fontWeight: '700', color: '#17324D', textTransform: 'uppercase', marginBottom: 8, opacity: 0.6 },
   input: { backgroundColor: '#F7F3EB', borderRadius: 12, padding: 12, fontSize: 14, color: '#17324D', marginBottom: 20 },

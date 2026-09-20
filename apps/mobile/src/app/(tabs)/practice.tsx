@@ -9,8 +9,6 @@ import type { ImageChallenge } from '@fluento/shared';
 export default function PracticeTabScreen() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingThought, setIsLoadingThought] = useState(false);
-
   const handleStartImageStudy = async () => {
     setIsLoading(true);
     try {
@@ -27,20 +25,8 @@ export default function PracticeTabScreen() {
     }
   };
 
-  const handleStartThoughtExercise = async () => {
-    setIsLoadingThought(true);
-    try {
-      const { data } = await apiClient.get<{ topic?: { id?: string } }>('/topics/random');
-      if (data?.topic?.id) {
-        router.push(`/practice/thought-exercise/${data.topic.id}`);
-      } else {
-        router.push('/practice/thought-exercise/demo-topic-1');
-      }
-    } catch {
-      router.push('/practice/thought-exercise/demo-topic-1');
-    } finally {
-      setIsLoadingThought(false);
-    }
+  const handleStartThoughtExercise = () => {
+    router.push('/practice/thought-exercise');
   };
 
   return (
@@ -89,13 +75,8 @@ export default function PracticeTabScreen() {
         <TouchableOpacity
           style={[styles.startButton, { backgroundColor: '#17324D' }]}
           onPress={handleStartThoughtExercise}
-          disabled={isLoadingThought}
         >
-          {isLoadingThought ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.startButtonText}>Start Thought Exercise →</Text>
-          )}
+          <Text style={styles.startButtonText}>Start Thought Exercise →</Text>
         </TouchableOpacity>
       </View>
     </ScrollView>
@@ -104,7 +85,7 @@ export default function PracticeTabScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F3EB' },
-  content: { padding: 20 },
+  content: { padding: 24, paddingBottom: 40 },
   sectionLabel: { fontSize: 11, letterSpacing: 2, color: '#17324D', opacity: 0.7, marginBottom: 8 },
   title: { fontSize: 32, fontWeight: '800', color: '#17324D', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#4B5563', lineHeight: 20, marginBottom: 20 },

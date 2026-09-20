@@ -71,7 +71,7 @@ function RecommendationCard({ challenge }: { challenge: ImageChallenge | Thought
       <h3 className="mt-3 font-serif text-xl font-bold text-[#17324D]">{challenge.topic.title}</h3>
       <p className="mt-2 font-mono text-sm text-[#17324D]/70">&ldquo;{challenge.topic.prompt}&rdquo;</p>
       <p className="mt-4 font-mono text-xs font-semibold uppercase tracking-wider text-[#17324D]/60">
-        Mode: {challenge.mode.replace('_', ' ')}
+        Preparation: {challenge.preparation.replace('_', ' ')}
       </p>
     </div>
   );

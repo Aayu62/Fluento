@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   ScrollView,
   View,
@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { apiClient } from '@/lib/api/client';
 import type { CallScenario, ScheduledCall } from '@fluento/shared';
 
@@ -19,7 +19,7 @@ export default function CallsTabScreen() {
   const [upcoming, setUpcoming] = useState<ScheduledCall[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [scenResp, upResp] = await Promise.all([
         apiClient.get<CallScenario[]>('/calls/scenarios'),
@@ -32,11 +32,13 @@ export default function CallsTabScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchData();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchData();
+    }, [fetchData])
+  );
 
   const handleStartCall = async (callId: string) => {
     try {
@@ -140,7 +142,7 @@ export default function CallsTabScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F3EB' },
-  content: { padding: 20 },
+  content: { padding: 24, paddingBottom: 40 },
   sectionLabel: {
     fontSize: 11,
     letterSpacing: 2,

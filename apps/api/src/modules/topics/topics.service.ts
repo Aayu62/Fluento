@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../database/database.service';
-import type { Topic, ThoughtExercise, ThoughtExerciseMode, TopicCategory, Difficulty } from '@fluento/shared';
+import type { Topic, ThoughtExercise, ThoughtExercisePreparation, ThoughtExerciseFormat, TopicCategory, Difficulty } from '@fluento/shared';
 
 @Injectable()
 export class TopicsService {
@@ -9,14 +9,16 @@ export class TopicsService {
   async getRandomExercise(
     category?: TopicCategory,
     difficulty?: Difficulty,
+    format?: ThoughtExerciseFormat,
+    preparation?: ThoughtExercisePreparation,
   ): Promise<ThoughtExercise> {
     let query = this.db.client
       .from('topics')
-      .select('id')
-      .eq('is_active', true);
+      .select('id');
 
     if (category) query = query.eq('category', category);
     if (difficulty) query = query.eq('difficulty', difficulty);
+    if (format) query = query.eq('format', format);
 
     const { data: ids } = await query;
     if (!ids || ids.length === 0) throw new NotFoundException('No topics available');
@@ -27,10 +29,9 @@ export class TopicsService {
 
     const topic = this.mapTopic(row);
 
-    const modes: ThoughtExerciseMode[] = ['monologue', 'quick_thinking', 'debate'];
-    const mode = modes[Math.floor(Math.random() * modes.length)]!;
+    const actualPreparation = preparation ?? 'quick_thinking';
 
-    return { topic, mode };
+    return { topic, preparation: actualPreparation };
   }
 
   async getById(id: string): Promise<Topic> {
@@ -46,6 +47,7 @@ export class TopicsService {
       category: row['category'] as Topic['category'],
       difficulty: row['difficulty'] as Topic['difficulty'],
       prompt: row['prompt'] as string,
+      format: row['format'] as Topic['format'],
     };
   }
 }

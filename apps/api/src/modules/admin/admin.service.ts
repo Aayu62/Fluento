@@ -92,7 +92,7 @@ export class AdminService {
         }),
       });
       if (res.ok) {
-        const json = await res.json();
+        const json = await res.json() as { response?: string };
         metadata = { description: json.response };
       } else {
         this.logger.warn(`AI vision returned ${res.status}`);
@@ -138,6 +138,7 @@ export class AdminService {
       category: row['category'] as Topic['category'],
       difficulty: row['difficulty'] as Topic['difficulty'],
       prompt: row['prompt'] as string,
+      format: row['format'] as Topic['format'],
     };
   }
 

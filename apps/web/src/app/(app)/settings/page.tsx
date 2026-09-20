@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
-import { supabase } from '@/lib/supabase/client';
+import { authApi } from '@/lib/api/auth.api';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -57,7 +57,9 @@ export default function SettingsPage() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await authApi.logout();
+    } catch {}
     router.push('/login');
   };
 

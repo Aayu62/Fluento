@@ -5,6 +5,7 @@ describe('ProgressService', () => {
   let mockDb: any;
   let mockCalls: any;
   let mockStreaks: any;
+  let mockImages: any;
   let mockTopics: any;
 
   beforeEach(() => {
@@ -33,7 +34,11 @@ describe('ProgressService', () => {
       getRandomExercise: jest.fn().mockResolvedValue(null),
     };
 
-    service = new ProgressService(mockDb, mockCalls, mockStreaks, mockTopics);
+    mockImages = {
+      getImagesForUser: jest.fn().mockResolvedValue([]),
+    };
+
+    service = new ProgressService(mockDb, mockStreaks, mockCalls, mockImages, mockTopics);
   });
 
   describe('getDashboard', () => {

@@ -7,7 +7,7 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { ThoughtExerciseSubmissionSchema, type ThoughtExerciseSubmissionDto } from '@fluento/shared';
 import type { User } from '@supabase/supabase-js';
-import type { TopicCategory, Difficulty } from '@fluento/shared';
+import type { TopicCategory, Difficulty, ThoughtExerciseFormat, ThoughtExercisePreparation } from '@fluento/shared';
 
 @ApiTags('topics')
 @ApiBearerAuth()
@@ -20,8 +20,13 @@ export class TopicsAliasController {
   ) {}
 
   @Get('random')
-  getRandom(@Query('category') category?: TopicCategory, @Query('difficulty') difficulty?: Difficulty) {
-    return this.topicsService.getRandomExercise(category, difficulty);
+  getRandom(
+    @Query('category') category?: TopicCategory, 
+    @Query('difficulty') difficulty?: Difficulty,
+    @Query('format') format?: ThoughtExerciseFormat,
+    @Query('preparation') preparation?: ThoughtExercisePreparation
+  ) {
+    return this.topicsService.getRandomExercise(category, difficulty, format, preparation);
   }
 
   @Post('submit')

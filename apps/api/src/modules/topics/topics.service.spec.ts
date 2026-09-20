@@ -36,7 +36,7 @@ describe('TopicsService', () => {
 
       const res = await service.getRandomExercise('opinion');
       expect(res.topic.id).toBe('topic-1');
-      expect(res.mode).toBeDefined();
+      expect(res.preparation).toBeDefined();
     });
 
     it('throws NotFoundException if no active topics exist', async () => {

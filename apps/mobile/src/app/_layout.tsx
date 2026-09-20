@@ -8,7 +8,7 @@ import { registerPushToken } from '@/lib/notifications';
 import { supabase } from '@/lib/supabase';
 import { authApi } from '@/lib/api/auth.api';
 
-import * as Notifications from 'expo-notifications';
+// import * as Notifications from 'expo-notifications'; // Dynamically imported
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
@@ -24,6 +24,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const initPush = async () => {
       try {
         if (Platform.OS === 'web') return;
+        // Push notifications are not supported in Expo Go (SDK 53+)
+        if (Constants.appOwnership === 'expo') {
+          console.log('Skipping push token registration in Expo Go');
+          return;
+        }
+        const Notifications = await import('expo-notifications');
         const { status: existingStatus } = await Notifications.getPermissionsAsync();
         let finalStatus = existingStatus;
         if (existingStatus !== 'granted') {
@@ -89,6 +95,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 export default function RootLayout() {
   return (
     <>
+      {/* @ts-expect-error - backgroundColor is supported on Android */}
       <StatusBar style="dark" backgroundColor="#F7F3EB" />
       <AuthGate>
         <Stack screenOptions={{ headerShown: false }} />

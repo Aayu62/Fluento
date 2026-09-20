@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   ScrollView,
   View,
@@ -26,37 +27,41 @@ export default function ProgressTabScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSessionsLoading, setIsSessionsLoading] = useState(false);
 
-  useEffect(() => {
-    let mounted = true;
-    setIsSessionsLoading(true);
-    apiClient.get<SessionReport[]>(`/progress/sessions?page=${sessionPage}&limit=5`)
-      .then((res) => {
-        if (mounted && res.data) setPaginatedSessions(res.data);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (mounted) setIsSessionsLoading(false);
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      setIsSessionsLoading(true);
+      apiClient.get<SessionReport[]>(`/progress/sessions?page=${sessionPage}&limit=5`)
+        .then((res) => {
+          if (mounted && res.data) setPaginatedSessions(res.data);
+        })
+        .catch(() => {})
+        .finally(() => {
+          if (mounted) setIsSessionsLoading(false);
+        });
+      return () => { mounted = false; };
+    }, [sessionPage])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      Promise.all([
+        apiClient.get<DashboardData>('/progress/dashboard').catch(() => null),
+        apiClient.get<ProgressHistory>(`/progress/history?range=${selectedRange}`).catch(() => null),
+      ]).then(([dashRes, histRes]) => {
+        if (mounted) {
+          if (dashRes?.data) setDashboard(dashRes.data);
+          if (histRes?.data) setHistoryData(histRes.data);
+          setIsLoading(false);
+        }
       });
-    return () => { mounted = false; };
-  }, [sessionPage]);
 
-  useEffect(() => {
-    let mounted = true;
-    Promise.all([
-      apiClient.get<DashboardData>('/progress/dashboard').catch(() => null),
-      apiClient.get<ProgressHistory>(`/progress/history?range=${selectedRange}`).catch(() => null),
-    ]).then(([dashRes, histRes]) => {
-      if (mounted) {
-        if (dashRes?.data) setDashboard(dashRes.data);
-        if (histRes?.data) setHistoryData(histRes.data);
-        setIsLoading(false);
-      }
-    });
-
-    return () => {
-      mounted = false;
-    };
-  }, [selectedRange]);
+      return () => {
+        mounted = false;
+      };
+    }, [selectedRange])
+  );
 
   const scores = dashboard?.scores ?? {
     fluency: 78,
@@ -199,7 +204,7 @@ export default function ProgressTabScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F3EB' },
-  content: { padding: 20 },
+  content: { padding: 24, paddingBottom: 40 },
   sectionLabel: { fontSize: 11, letterSpacing: 2, color: '#17324D', opacity: 0.7, marginBottom: 8 },
   title: { fontSize: 32, fontWeight: '800', color: '#17324D', marginBottom: 8 },
   subtitle: { fontSize: 14, color: '#4B5563', lineHeight: 20, marginBottom: 20 },

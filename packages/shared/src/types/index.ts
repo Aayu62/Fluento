@@ -154,8 +154,9 @@ export interface PerspectiveConfig {
 
 // ─── Topics ───────────────────────────────────────────────────────────────────
 
-export type TopicCategory = 'personal' | 'professional' | 'opinion' | 'general';
-export type ThoughtExerciseMode = 'monologue' | 'quick_thinking' | 'debate';
+export type TopicCategory = 'personal' | 'professional' | 'opinion' | 'general' | 'technology' | 'current_affairs' | 'history' | 'miscellaneous';
+export type ThoughtExerciseFormat = 'monologue' | 'debate';
+export type ThoughtExercisePreparation = 'quick_thinking' | 'research';
 
 export interface Topic {
   id: string;
@@ -163,11 +164,12 @@ export interface Topic {
   category: TopicCategory;
   difficulty: Difficulty;
   prompt: string;
+  format: ThoughtExerciseFormat;
 }
 
 export interface ThoughtExercise {
   topic: Topic;
-  mode: ThoughtExerciseMode;
+  preparation: ThoughtExercisePreparation;
 }
 
 // ─── Progress ─────────────────────────────────────────────────────────────────

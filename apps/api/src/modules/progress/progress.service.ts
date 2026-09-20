@@ -64,7 +64,23 @@ export class ProgressService {
       },
     }));
 
-    const personalBests = this.computePersonalBests(dataPoints);
+    const { data: allScores } = await this.db.client
+      .from('score_history')
+      .select('fluency, grammar, vocabulary, observation, expressiveness')
+      .eq('user_id', userId);
+
+    const allDataPoints: ProgressDataPoint[] = (allScores ?? []).map((row) => ({
+      date: '',
+      scores: {
+        fluency: (row['fluency'] as number) ?? 0,
+        grammar: (row['grammar'] as number) ?? 0,
+        vocabulary: (row['vocabulary'] as number) ?? 0,
+        observation: (row['observation'] as number) ?? 0,
+        expressiveness: (row['expressiveness'] as number) ?? 0,
+      },
+    }));
+
+    const personalBests = this.computePersonalBests(allDataPoints);
 
     return { range, dataPoints, personalBests };
   }

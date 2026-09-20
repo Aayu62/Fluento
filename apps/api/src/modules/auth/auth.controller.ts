@@ -14,15 +14,22 @@ import { SupabaseAuthGuard } from '../../common/guards/supabase-auth.guard';
 import { ZodValidationPipe } from '../../common/pipes/zod-validation.pipe';
 import { RegisterSchema, LoginSchema, type RegisterDto, type LoginDto } from '@fluento/shared';
 
+import { IsString, IsNotEmpty, IsEmail } from 'class-validator';
+
 class RefreshTokenBody {
+  @IsString()
+  @IsNotEmpty()
   refreshToken!: string;
 }
 
 class SyncAuthBody {
+  @IsString()
+  @IsNotEmpty()
   accessToken!: string;
 }
 
 class ForgotPasswordBody {
+  @IsEmail()
   email!: string;
 }
 

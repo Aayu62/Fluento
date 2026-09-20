@@ -135,7 +135,7 @@ export default function LoginPage() {
             Sign In
           </Button>
 
-          <Button type="button" variant="outline" onClick={handleGoogleLogin} className="w-full">
+          <Button type="button" variant="secondary" onClick={handleGoogleLogin} className="w-full">
             Sign in with Google
           </Button>
         </form>

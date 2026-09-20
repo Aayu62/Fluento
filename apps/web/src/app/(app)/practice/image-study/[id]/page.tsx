@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, use } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
 import type { Image, ImageChallenge, ChallengeMode, SessionReport } from '@fluento/shared';
 
@@ -9,6 +10,7 @@ export default function ActiveImageStudyPage({ params }: { params: Promise<{ id:
   const resolvedParams = use(params);
   const imageId = resolvedParams.id;
   const router = useRouter();
+  const queryClient = useQueryClient();
 
   const [image, setImage] = useState<Image | null>(null);
   const [mode, setMode] = useState<ChallengeMode>('standard');
@@ -144,8 +146,14 @@ export default function ActiveImageStudyPage({ params }: { params: Promise<{ id:
       if (report?.id) {
         sessionStorage.setItem(`image_report_${imageId}`, JSON.stringify(report));
       }
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['progress-history'] });
+      queryClient.invalidateQueries({ queryKey: ['progress-sessions'] });
       router.push(`/practice/image-study/${imageId}/report`);
     } catch {
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['progress-history'] });
+      queryClient.invalidateQueries({ queryKey: ['progress-sessions'] });
       // Direct navigation on fallback
       router.push(`/practice/image-study/${imageId}/report`);
     } finally {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
@@ -10,13 +10,20 @@ import { IncomingCallModal } from '@/components/calls/incoming-call-modal';
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, token } = useAuthStore();
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated && !token) {
+    useAuthStore.persist.onFinishHydration(() => setHasHydrated(true));
+    setHasHydrated(useAuthStore.persist.hasHydrated());
+  }, []);
+
+  useEffect(() => {
+    if (hasHydrated && !isAuthenticated && !token) {
       router.replace('/login');
     }
-  }, [isAuthenticated, token, router]);
+  }, [hasHydrated, isAuthenticated, token, router]);
 
+  if (!hasHydrated) return null;
   if (!isAuthenticated && !token) return null;
 
   return (
