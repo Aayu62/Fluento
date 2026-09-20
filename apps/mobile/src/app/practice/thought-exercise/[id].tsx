@@ -109,17 +109,29 @@ export default function MobileThoughtExerciseScreen() {
   }, [phase, actionTimeLeft, isSubmitting]);
 
   const handleFinalSubmit = async () => {
-    if (!responseText.trim()) return;
+    if (!responseText.trim() || !topic) return;
 
     setIsSubmitting(true);
     try {
-      await apiClient.post('/topics/submit', {
+      const { data: report } = await apiClient.post('/challenges/thought/submit', {
         topicId: id,
-        mode: topic?.format ?? 'monologue',
+        mode: topic.format ?? 'monologue',
         responseText: responseText.trim(),
       });
+
+      // Cache the report so the report screen can read it without an extra API call
+      await AsyncStorage.setItem(`report_${id}`, JSON.stringify(report));
+
+      // Clean up timer cache on successful submission
+      await AsyncStorage.removeItem(`timer_${id}`);
+
       router.replace(`/practice/thought-exercise/${id}/report`);
-    } catch {
+    } catch (err: unknown) {
+      // If the API fails (e.g. no network), store a flag so report shows an error state
+      await AsyncStorage.setItem(
+        `report_${id}`,
+        JSON.stringify({ _error: true, _message: 'Evaluation unavailable — please try again.' }),
+      );
       router.replace(`/practice/thought-exercise/${id}/report`);
     } finally {
       setIsSubmitting(false);
@@ -232,7 +244,7 @@ export default function MobileThoughtExerciseScreen() {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F3EB' },
-  content: { padding: 20 },
+  content: { padding: 24 },
   sectionLabel: { fontSize: 11, letterSpacing: 2, color: '#17324D', opacity: 0.7, marginBottom: 8 },
   title: { fontSize: 28, fontWeight: '800', color: '#17324D', marginBottom: 16 },
   stack: { gap: 16 },

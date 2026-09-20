@@ -43,9 +43,11 @@ Fluento positions communication as a trainable skill similar to fitness.
 
 ### AI Stack
 - **Speech-to-Text:** Faster Whisper
-- **LLM / Evaluation:** Qwen 3 via Ollama
+- **LLM / Evaluation (Primary):** Groq API (`llama3-8b-8192`) — managed, free-tier, scalable
+- **LLM / Evaluation (Secondary Fallback):** Qwen 3 via local Ollama
+- **LLM / Evaluation (Tertiary Fallback):** Deterministic NLP scorer (SpaCy + TF-IDF — always-on, no AI required)
 - **Text-to-Speech:** Piper TTS
-- **AI Gateway Server:** FastAPI (Python 3.11)
+- **AI Gateway Server:** FastAPI (Python 3.11) with `X-Internal-Key` auth
 
 ## Monorepo Structure
 
@@ -90,11 +92,20 @@ SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 ADMIN_EMAILS=admin@fluento.app
 AI_SERVER_URL=http://localhost:8000
+INTERNAL_API_KEY=your-shared-secret-key   # Must match the AI server's value
 WHISPER_MODEL=base
 OLLAMA_URL=http://localhost:11434
 QWEN_MODEL=qwen3:8b
 PIPER_URL=http://localhost:5000
 EXPO_ACCESS_TOKEN=your-expo-access-token
+```
+
+### AI Server (`docker/ai-server/.env` or environment)
+```env
+GROQ_API_KEY=your-groq-api-key           # Get free key at console.groq.com
+INTERNAL_API_KEY=your-shared-secret-key  # Must match the API server's value
+OLLAMA_URL=http://ollama:11434           # Use http://localhost:11434 for local dev
+QWEN_MODEL=qwen3:8b
 ```
 
 ### Web Frontend (`apps/web/.env.local`)
@@ -199,10 +210,15 @@ pnpm lint
 
 ## Deployment Notes
 
-- **Backend API:** Designed to deploy on Node.js container environments (Docker, AWS ECS, Google Cloud Run, or Render).
-- **Web Frontend:** Designed to deploy on Vercel or Node.js SSR hosts.
+### Zero-Cost Hosting Blueprint
+- **Web Frontend:** Deploy to [Vercel](https://vercel.com) (free hobby tier) — connect GitHub repo, auto-builds on push.
+- **Backend API:** Deploy to [Render](https://render.com) free tier (Docker container). Note: free tier sleeps after 15 min of inactivity.
+- **Database & Auth:** [Supabase Cloud](https://supabase.com) free tier — 500 MB DB, 50,000 MAU.
+- **AI Evaluation:** Configure `GROQ_API_KEY` (free at [console.groq.com](https://console.groq.com)) — replaces the need for self-hosted GPU. The deterministic NLP fallback (`deterministic_scorer.py`) handles evaluation if Groq is unavailable.
 - **Mobile App:** Configured for Expo Application Services (EAS Build) targeting iOS App Store and Google Play Store.
-- **AI Services:** Require GPU-enabled instances (e.g., RunPod, AWS EC2 GPU instances) executing Docker containers for Ollama (Qwen 3) and Python AI Server (Faster Whisper + Piper).
+
+### Self-Hosted AI (Optional / Private)
+- The AI Gateway Server (`docker/ai-server`) can be deployed on GPU-enabled instances (e.g., RunPod, AWS EC2) for fully private, on-premise evaluation using Ollama + Qwen 3.
 
 ## Current Project Status
 

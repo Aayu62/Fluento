@@ -1,4 +1,5 @@
 import { apiClient } from './client';
+import axios from 'axios';
 import type { RegisterDto, LoginDto, User, UserProfile, OnboardingDto } from '@fluento/shared';
 
 interface AuthResponse {
@@ -14,18 +15,18 @@ interface MeResponse {
 
 export const authApi = {
   register: (dto: RegisterDto) =>
-    apiClient.post<AuthResponse>('/auth/register', dto).then((r) => r.data),
+    axios.post<AuthResponse>('/api/auth/register', dto).then((r) => r.data),
 
   login: (dto: LoginDto) =>
-    apiClient.post<AuthResponse>('/auth/login', dto).then((r) => r.data),
+    axios.post<AuthResponse>('/api/auth/login', dto).then((r) => r.data),
 
-  syncGoogleAuth: (accessToken: string) =>
-    apiClient.post<{ success: boolean; user: any }>('/auth/sync', { accessToken }).then((r) => r.data),
+  syncGoogleAuth: (accessToken: string, refreshToken?: string) =>
+    axios.post<{ success: boolean; user: any }>('/api/auth/sync', { accessToken, refreshToken }).then((r) => r.data),
 
-  logout: () => apiClient.post('/auth/logout'),
+  logout: () => axios.post('/api/auth/logout'),
 
-  refresh: (refreshToken: string) =>
-    apiClient.post<AuthResponse>('/auth/refresh', { refreshToken }).then((r) => r.data),
+  refresh: () =>
+    axios.post<{ success: boolean }>('/api/auth/refresh').then((r) => r.data),
 
   getMe: () => apiClient.get<MeResponse>('/users/me').then((r) => r.data),
 

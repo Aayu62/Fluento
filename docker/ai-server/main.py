@@ -4,21 +4,39 @@ FastAPI server handling Faster Whisper STT, Ollama Qwen LLM, and Piper TTS pipel
 Implemented per TDD §7–10 and Phase 13 specifications.
 """
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 import tempfile
 import urllib.request
+import urllib.error
 import json
-from fastapi import FastAPI, UploadFile, File, HTTPException, Response
+from fastapi import FastAPI, UploadFile, File, HTTPException, Response, Security, Depends
+from fastapi.security.api_key import APIKeyHeader
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
+from groq import Groq
+
+# Import deterministic scorer
+from deterministic_scorer import score_response as deterministic_score_response
 
 app = FastAPI(
     title="Fluento AI Server",
-    description="Speech Recognition (Whisper), LLM Orchestration (Qwen), and TTS (Piper)",
+    description="Speech Recognition (Whisper), LLM Orchestration (Qwen/Groq), and TTS (Piper)",
     version="1.0.0",
 )
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "http://ollama:11434")
 QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen3:8b")
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+INTERNAL_API_KEY = os.getenv("INTERNAL_API_KEY", "dev-internal-key")
+
+_api_key_header = APIKeyHeader(name="X-Internal-Key", auto_error=True)
+
+async def require_internal_key(key: str = Security(_api_key_header)):
+    if key != INTERNAL_API_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
 
 # Try initializing Faster Whisper if available
 whisper_model = None
@@ -28,17 +46,16 @@ try:
 except Exception as e:
     print(f"FasterWhisper initialization warning (running in fallback mode): {e}")
 
-
 class TTSRequest(BaseModel):
     text: str
     voice: str | None = "en_US-lessac-medium"
-
 
 class LLMRequest(BaseModel):
     prompt: str
     system_prompt: str | None = None
     temperature: float | None = 0.7
-
+    topic_prompt: str | None = None
+    user_response: str | None = None
 
 @app.get("/health")
 async def health() -> dict[str, object]:
@@ -51,7 +68,7 @@ async def health() -> dict[str, object]:
 
 
 @app.post("/stt/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)) -> dict[str, object]:
+async def transcribe_audio(file: UploadFile = File(...), _: None = Depends(require_internal_key)) -> dict[str, object]:
     """
     Speech-to-Text Endpoint using Faster Whisper
     TDD §8 — Accepts WAV/MP3/M4A audio files and returns transcribed text.
@@ -84,18 +101,38 @@ async def transcribe_audio(file: UploadFile = File(...)) -> dict[str, object]:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
 
-
 @app.post("/llm/generate")
-async def generate_response(req: LLMRequest) -> dict[str, object]:
+async def generate_response(req: LLMRequest, _: None = Depends(require_internal_key)) -> dict[str, object]:
     """
-    LLM Generation Endpoint relaying to Ollama Qwen 3
-    TDD §9 — Handles conversation turn generation and evaluation prompts.
+    LLM Generation Endpoint relaying to Groq -> Ollama -> Deterministic Fallback
     """
+    system_prompt = req.system_prompt or "You are Fluento AI, an encouraging communication coach."
+    
+    # 1. Primary: Groq API
+    if GROQ_API_KEY:
+        try:
+            client = Groq(api_key=GROQ_API_KEY)
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": req.prompt}
+                ],
+                model="llama-3.1-8b-instant",
+                temperature=req.temperature or 0.7,
+            )
+            return {
+                "response": chat_completion.choices[0].message.content.strip(),
+                "engine": "groq"
+            }
+        except Exception as e:
+            print(f"Groq API failed: {e}. Falling back to Ollama.")
+
+    # 2. Secondary: Local Ollama
     endpoint = f"{OLLAMA_URL}/api/generate"
     payload = {
         "model": QWEN_MODEL,
         "prompt": req.prompt,
-        "system": req.system_prompt or "You are Fluento AI, an encouraging communication coach.",
+        "system": system_prompt,
         "stream": False,
         "options": {"temperature": req.temperature or 0.7},
     }
@@ -109,12 +146,26 @@ async def generate_response(req: LLMRequest) -> dict[str, object]:
         )
         with urllib.request.urlopen(request, timeout=10) as response:
             res_data = json.loads(response.read().decode("utf-8"))
-            return {"response": res_data.get("response", "").strip()}
+            return {
+                "response": res_data.get("response", "").strip(),
+                "engine": "ollama"
+            }
     except Exception as err:
-        # Fallback simulation if Ollama is unreachable in offline dev mode
+        print(f"Ollama API failed: {err}. Falling back to Deterministic Scorer.")
+        
+        # 3. Tertiary: Deterministic Scorer
+        if req.topic_prompt and req.user_response:
+            score_data = deterministic_score_response(req.topic_prompt, req.user_response)
+            return {
+                "response": json.dumps(score_data),
+                "fallback": "deterministic",
+                "engine": "deterministic"
+            }
+        
         return {
             "response": f"I understand your position. Could you elaborate on your main reasons?",
-            "fallback": True,
+            "fallback": "offline",
+            "engine": "offline_fallback",
             "error": str(err),
         }
 
@@ -125,7 +176,7 @@ async def synthesize_speech(req: TTSRequest):
     Text-to-Speech Endpoint using Piper TTS
     TDD §10 — Converts input text to WAV audio output stream.
     """
-    if not req.text.trim():
+    if not req.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
 
     # Audio synthesis header stub or file response

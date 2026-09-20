@@ -28,28 +28,38 @@ create table if not exists public.user_profiles (
 
 -- ─── user_scores ─────────────────────────────────────────────────────────────
 create table if not exists public.user_scores (
-  id              uuid        primary key default uuid_generate_v4(),
-  user_id         uuid        not null unique references public.users(id) on delete cascade,
-  fluency         numeric(5,2) not null default 50,
-  grammar         numeric(5,2) not null default 50,
-  vocabulary      numeric(5,2) not null default 50,
-  observation     numeric(5,2) not null default 50,
-  expressiveness  numeric(5,2) not null default 50,
-  updated_at      timestamptz  not null default now()
+  id                uuid         primary key default uuid_generate_v4(),
+  user_id           uuid         not null unique references public.users(id) on delete cascade,
+  -- Shared
+  fluency           numeric(5,2) not null default 50,
+  grammar           numeric(5,2) not null default 50,
+  vocabulary        numeric(5,2) not null default 50,
+  -- Voice call
+  confidence        numeric(5,2) not null default 50,
+  -- Image study
+  observation       numeric(5,2) not null default 50,
+  expressiveness    numeric(5,2) not null default 50,
+  -- Thought exercise
+  clarity           numeric(5,2) not null default 50,
+  argument_strength numeric(5,2) not null default 50,
+  updated_at        timestamptz  not null default now()
 );
 
 -- ─── score_history ───────────────────────────────────────────────────────────
 create table if not exists public.score_history (
-  id            uuid        primary key default uuid_generate_v4(),
-  user_id       uuid        not null references public.users(id) on delete cascade,
-  session_type  varchar(30) not null
-                  check (session_type in ('voice_call', 'image_study', 'thought_exercise')),
-  fluency         numeric(5,2),
-  grammar         numeric(5,2),
-  vocabulary      numeric(5,2),
-  observation     numeric(5,2),
-  expressiveness  numeric(5,2),
-  recorded_at   timestamptz  not null default now()
+  id                uuid         primary key default uuid_generate_v4(),
+  user_id           uuid         not null references public.users(id) on delete cascade,
+  session_type      varchar(30)  not null
+                      check (session_type in ('voice_call', 'image_study', 'thought_exercise')),
+  fluency           numeric(5,2),
+  grammar           numeric(5,2),
+  vocabulary        numeric(5,2),
+  confidence        numeric(5,2),
+  observation       numeric(5,2),
+  expressiveness    numeric(5,2),
+  clarity           numeric(5,2),
+  argument_strength numeric(5,2),
+  recorded_at       timestamptz  not null default now()
 );
 
 create index if not exists idx_score_history_user_date
@@ -225,3 +235,88 @@ create policy "activity_log: own rows" on public.activity_log
 
 create policy "push_tokens: own rows" on public.push_tokens
   for all using (auth.uid() = user_id);
+
+-- ─── submit_session_tx (RPC) ──────────────────────────────────────────────────
+-- Atomically saves a session report, updates rolling user scores (weighted
+-- 80/20 rolling average), appends a score_history row, and logs the activity.
+-- Uses explicit column updates — no dynamic SQL — to prevent column-not-found errors.
+create or replace function public.submit_session_tx(
+  p_user_id             uuid,
+  p_session_type        text,
+  p_session_id          uuid,
+  p_score_json          jsonb,
+  p_feedback            text,
+  p_strengths           text[],
+  p_improvements        text[],
+  p_recommendations     text[],
+  p_score_updates       jsonb,
+  p_activity_event_type text,
+  p_activity_metadata   jsonb,
+  p_score_history_entry jsonb default null
+)
+returns jsonb
+language plpgsql
+security definer
+as $$
+declare
+  v_report_id uuid;
+begin
+  -- 1. Insert session report
+  insert into public.session_reports
+    (user_id, session_type, session_id, score_json, feedback, strengths, improvements, recommendations)
+  values
+    (p_user_id, p_session_type, p_session_id, p_score_json,
+     p_feedback, p_strengths, p_improvements, p_recommendations)
+  returning id into v_report_id;
+
+  -- 2. Ensure user_scores row exists
+  insert into public.user_scores (user_id)
+  values (p_user_id)
+  on conflict (user_id) do nothing;
+
+  -- 3. Rolling average update: new = old * 0.8 + new * 0.2
+  -- Only updates columns that are present in p_score_updates (safe explicit checks)
+  update public.user_scores set
+    fluency           = case when p_score_updates ? 'fluency'           then fluency           * 0.8 + (p_score_updates->>'fluency')::numeric           * 0.2 else fluency           end,
+    grammar           = case when p_score_updates ? 'grammar'           then grammar           * 0.8 + (p_score_updates->>'grammar')::numeric           * 0.2 else grammar           end,
+    vocabulary        = case when p_score_updates ? 'vocabulary'        then vocabulary        * 0.8 + (p_score_updates->>'vocabulary')::numeric        * 0.2 else vocabulary        end,
+    confidence        = case when p_score_updates ? 'confidence'        then confidence        * 0.8 + (p_score_updates->>'confidence')::numeric        * 0.2 else confidence        end,
+    observation       = case when p_score_updates ? 'observation'       then observation       * 0.8 + (p_score_updates->>'observation')::numeric       * 0.2 else observation       end,
+    expressiveness    = case when p_score_updates ? 'expressiveness'    then expressiveness    * 0.8 + (p_score_updates->>'expressiveness')::numeric    * 0.2 else expressiveness    end,
+    clarity           = case when p_score_updates ? 'clarity'           then clarity           * 0.8 + (p_score_updates->>'clarity')::numeric           * 0.2 else clarity           end,
+    argument_strength = case when p_score_updates ? 'argument_strength' then argument_strength * 0.8 + (p_score_updates->>'argument_strength')::numeric * 0.2 else argument_strength end,
+    updated_at        = now()
+  where user_id = p_user_id;
+
+  -- 4. Append score_history snapshot (nullable columns — only inserts what was provided)
+  if p_score_history_entry is not null then
+    insert into public.score_history
+      (user_id, session_type, fluency, grammar, vocabulary,
+       confidence, observation, expressiveness, clarity, argument_strength)
+    values (
+      p_user_id,
+      p_session_type,
+      (p_score_history_entry->>'fluency')::numeric,
+      (p_score_history_entry->>'grammar')::numeric,
+      (p_score_history_entry->>'vocabulary')::numeric,
+      (p_score_history_entry->>'confidence')::numeric,
+      (p_score_history_entry->>'observation')::numeric,
+      (p_score_history_entry->>'expressiveness')::numeric,
+      (p_score_history_entry->>'clarity')::numeric,
+      (p_score_history_entry->>'argument_strength')::numeric
+    );
+  end if;
+
+  -- 5. Write activity log
+  insert into public.activity_log (user_id, event_type, metadata)
+  values (p_user_id, p_activity_event_type, p_activity_metadata);
+
+  -- 6. Return the created report row as JSON
+  return (
+    select row_to_json(r)::jsonb
+    from (select * from public.session_reports where id = v_report_id) r
+  );
+end;
+$$;
+
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards, Query, Param } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { TopicsService } from './topics.service';
 import { ChallengesService } from '../challenges/challenges.service';
@@ -19,6 +19,11 @@ export class TopicsAliasController {
     private readonly challengesService: ChallengesService,
   ) {}
 
+  @Get()
+  getAll(@Query('limit') limit?: string) {
+    return this.topicsService.getAll(limit ? parseInt(limit, 10) : undefined);
+  }
+
   @Get('random')
   getRandom(
     @Query('category') category?: TopicCategory, 
@@ -27,6 +32,11 @@ export class TopicsAliasController {
     @Query('preparation') preparation?: ThoughtExercisePreparation
   ) {
     return this.topicsService.getRandomExercise(category, difficulty, format, preparation);
+  }
+
+  @Get(':id')
+  getById(@Param('id') id: string) {
+    return this.topicsService.getById(id);
   }
 
   @Post('submit')

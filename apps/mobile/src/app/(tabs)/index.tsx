@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F3EB',
   },
   content: {
-    padding: 24,
+    padding: 32,
   },
   sectionLabel: {
     fontSize: 11,

@@ -1,48 +1,28 @@
-'use client';
+import { cookies } from 'next/headers';
+import AppLayoutClient from './layout.client';
+import { redirect } from 'next/navigation';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuthStore } from '@/lib/stores/auth.store';
+export default async function AppLayout({ children }: { children: React.ReactNode }) {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('fluento_token')?.value;
+  
+  if (!token) {
+    redirect('/login');
+  }
 
-import { NavigationHeader } from '@/components/layout/navigation-header';
-import { IncomingCallModal } from '@/components/calls/incoming-call-modal';
-
-export default function AppLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { isAuthenticated, token } = useAuthStore();
-  const [hasHydrated, setHasHydrated] = useState(false);
-
-  useEffect(() => {
-    useAuthStore.persist.onFinishHydration(() => setHasHydrated(true));
-    setHasHydrated(useAuthStore.persist.hasHydrated());
-  }, []);
-
-  useEffect(() => {
-    if (hasHydrated && !isAuthenticated && !token) {
-      router.replace('/login');
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) {
+      redirect('/login');
     }
-  }, [hasHydrated, isAuthenticated, token, router]);
 
-  if (!hasHydrated) return null;
-  if (!isAuthenticated && !token) return null;
-
-  return (
-    <div className="relative min-h-screen bg-paper">
-      {/* DESIGN.md §8 — notebook grid overlay */}
-      <div
-        className="pointer-events-none fixed inset-0 z-0"
-        style={{
-          backgroundImage:
-            'linear-gradient(#D8D0C0 1px, transparent 1px), linear-gradient(90deg, #D8D0C0 1px, transparent 1px)',
-          backgroundSize: '40px 40px',
-          opacity: 0.15,
-        }}
-      />
-      <div className="relative z-10">
-        <NavigationHeader />
-        <IncomingCallModal />
-        {children}
-      </div>
-    </div>
-  );
+    const data = await res.json();
+    return <AppLayoutClient user={data.user}>{children}</AppLayoutClient>;
+  } catch (err) {
+    redirect('/login');
+  }
 }
+

@@ -6,7 +6,9 @@ import {
   HttpStatus,
   UseGuards,
   Headers,
+  Req,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { ApiTags, ApiBearerAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ThrottlerGuard, Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
@@ -71,8 +73,11 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Logout and invalidate session' })
-  logout(@Headers('authorization') authHeader: string) {
-    const token = authHeader.slice(7);
+  logout(@Req() req: Request) {
+    let token = '';
+    const authHeader = req.headers['authorization'];
+    if (authHeader?.startsWith('Bearer ')) token = authHeader.slice(7);
+    else if (req.cookies?.['fluento_token']) token = req.cookies['fluento_token'];
     return this.authService.logout(token);
   }
 

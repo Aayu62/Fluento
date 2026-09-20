@@ -122,8 +122,8 @@ export class CallsService {
     if (result.scores.confidence !== undefined) rollingUpdates.confidence = result.scores.confidence;
 
     const scoreHistoryEntry = {
-      fluency: result.scores.fluency ?? 0,
-      grammar: result.scores.grammar ?? 0,
+      fluency:    result.scores.fluency    ?? 0,
+      grammar:    result.scores.grammar    ?? 0,
       vocabulary: result.scores.vocabulary ?? 0,
       confidence: result.scores.confidence ?? 0,
     };
@@ -169,9 +169,13 @@ export class CallsService {
     if (role === 'user') {
       try {
         const aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
+        const internalApiKey = process.env['INTERNAL_API_KEY'] || 'dev-internal-key';
         const res = await fetch(`${aiServerUrl}/llm/generate`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Key': internalApiKey,
+          },
           body: JSON.stringify({
             prompt: content,
             system_prompt: 'You are an engaging AI practice partner in a roleplay conversation. Respond concisely in 1-2 natural sentences.',

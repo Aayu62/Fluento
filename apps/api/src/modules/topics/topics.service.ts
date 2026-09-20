@@ -34,6 +34,16 @@ export class TopicsService {
     return { topic, preparation: actualPreparation };
   }
 
+  async getAll(limit?: number): Promise<Topic[]> {
+    let query = this.db.client.from('topics').select('*');
+    if (limit) {
+      query = query.limit(limit);
+    }
+    const { data } = await query;
+    if (!data) return [];
+    return data.map(this.mapTopic);
+  }
+
   async getById(id: string): Promise<Topic> {
     const row = await this.db.findOne<Record<string, unknown>>('topics', { id });
     if (!row) throw new NotFoundException('Topic not found');

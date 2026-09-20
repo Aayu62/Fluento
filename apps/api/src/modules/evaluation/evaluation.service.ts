@@ -20,6 +20,9 @@ export interface EvaluationResult {
 export class EvaluationService {
   private readonly logger = new Logger(EvaluationService.name);
   private readonly aiServerUrl = process.env['AI_SERVER_URL'] || 'http://localhost:8000';
+  private get internalApiKey() {
+    return process.env['INTERNAL_API_KEY'] || 'dev-internal-key';
+  }
 
   async evaluate(input: EvaluationInput): Promise<EvaluationResult> {
     this.logger.log(`Evaluating ${input.sessionType} session via AI stack`);
@@ -29,17 +32,36 @@ export class EvaluationService {
 Response: "${input.userResponse}"
 Context: ${JSON.stringify(input.contextData)}`;
 
+      let topicPromptStr = '';
+      if (input.contextData && typeof input.contextData.prompt === 'string') {
+        topicPromptStr = input.contextData.prompt;
+      } else if (input.contextData && typeof input.contextData.topicPrompt === 'string') {
+        topicPromptStr = input.contextData.topicPrompt;
+      } else if (input.contextData && typeof input.contextData.title === 'string') {
+        topicPromptStr = input.contextData.title;
+      } else {
+        topicPromptStr = JSON.stringify(input.contextData);
+      }
+
       const response = await fetch(`${this.aiServerUrl}/llm/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Internal-Key': this.internalApiKey,
+        },
         body: JSON.stringify({
           prompt,
-          system_prompt: 'You are an expert communication evaluator. Output structured scores and feedback.',
+          system_prompt: 'You are an expert communication evaluator. Output structured scores and feedback. Include "scores", "feedback", "strengths", and "improvements" keys in your JSON response.',
+          topic_prompt: topicPromptStr,
+          user_response: input.userResponse,
         }),
       });
 
       if (response.ok) {
-        const json = (await response.json()) as { response?: string };
+        const json = (await response.json()) as { response?: string; engine?: string };
+        if (json.engine) {
+          this.logger.log(`Evaluation generated successfully via engine: [${json.engine.toUpperCase()}]`);
+        }
         if (json.response) {
           try {
             let rawResponse = json.response;

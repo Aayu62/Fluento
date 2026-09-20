@@ -1,43 +1,31 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { apiClient } from '@/lib/api/client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { Topic, TopicCategory, ThoughtExercisePreparation, ThoughtExerciseFormat } from '@fluento/shared';
+import type { TopicCategory, ThoughtExercisePreparation, ThoughtExerciseFormat } from '@fluento/shared';
 
 export default function ThoughtExerciseHubScreen() {
   const router = useRouter();
   const [selectedPreparation, setSelectedPreparation] = useState<ThoughtExercisePreparation>('quick_thinking');
   const [selectedFormat, setSelectedFormat] = useState<ThoughtExerciseFormat | 'all'>('all');
   const [selectedCategory, setSelectedCategory] = useState<TopicCategory | 'all'>('all');
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [loadingText, setLoadingText] = useState('SELECTING...');
 
   useEffect(() => {
-    async function fetchTopics() {
-      try {
-        const { data } = await apiClient.get<Topic[]>('/topics');
-        if (data) {
-          setTopics(data);
-        }
-      } catch (err) {
-        // Handle error by doing nothing for now or fallback
-        console.error('Failed to fetch topics', err);
-      } finally {
-        setIsLoading(false);
-      }
+    if (!isLoadingRandom) {
+      setLoadingText('SELECTING...');
+      return;
     }
-    fetchTopics();
-  }, []);
-
-  const filteredTopics = useMemo(() => {
-    return topics.filter((t) => {
-      const matchCategory = selectedCategory === 'all' || t.category === selectedCategory;
-      const matchFormat = selectedFormat === 'all' || t.format === selectedFormat;
-      return matchCategory && matchFormat;
-    });
-  }, [topics, selectedCategory, selectedFormat]);
+    const words = ['SELECTING...', 'GENERATING..', 'PREPARING...'];
+    let i = 0;
+    const interval = setInterval(() => {
+      i = (i + 1) % words.length;
+      setLoadingText(words[i]!);
+    }, 400);
+    return () => clearInterval(interval);
+  }, [isLoadingRandom]);
 
   const handleStartRandom = async () => {
     setIsLoadingRandom(true);
@@ -62,9 +50,15 @@ export default function ThoughtExerciseHubScreen() {
     }
   };
 
-  const handleStartTopic = (topic: Topic) => {
-    AsyncStorage.removeItem(`timer_${topic.id}`).catch(() => {});
-    router.push({ pathname: '/practice/thought-exercise/[id]', params: { id: topic.id, preparation: selectedPreparation } });
+  const handleChooseTopic = () => {
+    router.push({
+      pathname: '/practice/thought-exercise/choose' as any,
+      params: {
+        category: selectedCategory,
+        format: selectedFormat,
+        preparation: selectedPreparation,
+      },
+    });
   };
 
   const categories: { id: TopicCategory | 'all'; label: string }[] = [
@@ -93,21 +87,6 @@ export default function ThoughtExerciseHubScreen() {
         <View style={styles.header}>
           <Text style={styles.subtitle}>PART III — THOUGHT EXERCISES</Text>
           <Text style={styles.title}>Speaking Topic Challenges</Text>
-          <Text style={styles.description}>
-            Master spontaneous communication, monologue structure, 30-second quick thinking, and debate reasoning.
-          </Text>
-
-          <TouchableOpacity
-            style={styles.randomButton}
-            onPress={handleStartRandom}
-            disabled={isLoadingRandom}
-          >
-            {isLoadingRandom ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.randomButtonText}>⚡ Random Topic Challenge</Text>
-            )}
-          </TouchableOpacity>
         </View>
 
         {/* 1. Preparation Type */}
@@ -178,29 +157,25 @@ export default function ThoughtExerciseHubScreen() {
           </View>
         </View>
 
-        <View style={styles.listContainer}>
-          {isLoading ? (
-            <ActivityIndicator style={{ marginTop: 40 }} color="#17324D" />
-          ) : filteredTopics.length === 0 ? (
-            <Text style={styles.emptyText}>No topics found.</Text>
-          ) : (
-            filteredTopics.map((topic) => (
-              <TouchableOpacity
-                key={topic.id}
-                style={styles.topicCard}
-                onPress={() => handleStartTopic(topic)}
-              >
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardCategory}>{topic.category.toUpperCase()}</Text>
-                  <Text style={styles.cardDifficulty}>{topic.difficulty}</Text>
-                </View>
-                <Text style={styles.cardTitle}>{topic.title}</Text>
-                <Text style={styles.cardPrompt} numberOfLines={3}>
-                  {topic.prompt}
-                </Text>
-              </TouchableOpacity>
-            ))
-          )}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={styles.randomButton}
+            onPress={handleStartRandom}
+            disabled={isLoadingRandom}
+          >
+            {isLoadingRandom ? (
+              <Text style={styles.randomButtonText}>{loadingText}</Text>
+            ) : (
+              <Text style={styles.randomButtonText}>⚡ Random Topic Challenge</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.chooseButton}
+            onPress={handleChooseTopic}
+          >
+            <Text style={styles.chooseButtonText}>🔍 Choose Topic</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>
@@ -216,12 +191,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    paddingTop: 16,
-    paddingBottom: 40,
+    paddingTop: 12,
+    paddingBottom: 24,
   },
   header: {
-    paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingHorizontal: 32,
+    marginBottom: 16,
   },
   subtitle: {
     fontFamily: 'Courier',
@@ -243,27 +218,46 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 24,
   },
+  actionsContainer: {
+    paddingHorizontal: 32,
+    marginTop: 16,
+    gap: 12,
+  },
   randomButton: {
     backgroundColor: '#C4623B',
-    paddingVertical: 14,
+    paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: '#C4623B',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   randomButtonText: {
     color: '#FFFFFF',
     fontFamily: 'Courier',
-    fontSize: 14,
     fontWeight: '700',
+    fontSize: 14,
     letterSpacing: 1,
-    textTransform: 'uppercase',
+  },
+  chooseButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#17324D',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  chooseButtonText: {
+    color: '#17324D',
+    fontFamily: 'Courier',
+    fontWeight: '700',
+    fontSize: 14,
+    letterSpacing: 1,
   },
   sectionContainer: {
-    marginBottom: 24,
+    marginBottom: 16,
   },
   sectionTitle: {
     fontFamily: 'Courier',
@@ -271,17 +265,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#17324D',
     marginBottom: 16,
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
   },
   prepRow: {
     flexDirection: 'column',
-    gap: 12,
-    paddingHorizontal: 20,
+    gap: 8,
+    paddingHorizontal: 32,
   },
   prepCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -319,7 +313,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: 'rgba(23, 50, 77, 0.5)',
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
     marginBottom: 8,
     marginTop: 8,
   },
@@ -327,7 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   filtersContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
     gap: 8,
   },
   filterPill: {
@@ -352,7 +346,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 32,
     gap: 16,
   },
   topicCard: {

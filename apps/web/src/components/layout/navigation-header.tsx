@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/stores/auth.store';
 import { useState, useRef, useEffect } from 'react';
 import { User, LogOut } from 'lucide-react';
+import { authApi } from '@/lib/api/auth.api';
 
 export function NavigationHeader() {
   const pathname = usePathname();
@@ -13,7 +14,8 @@ export function NavigationHeader() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await authApi.logout().catch(() => {});
     clearAuth();
     router.push('/login');
   };

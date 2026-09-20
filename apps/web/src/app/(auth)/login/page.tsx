@@ -35,10 +35,8 @@ export default function LoginPage() {
           createdAt: '',
           updatedAt: '',
         },
-        data.accessToken,
+        '',
       );
-      localStorage.setItem('fluento_token', data.accessToken);
-      localStorage.setItem('fluento_refresh', data.refreshToken);
       router.push('/journal');
     },
   });
@@ -56,12 +54,8 @@ export default function LoginPage() {
               createdAt: '',
               updatedAt: '',
             },
-            session.access_token,
+            '',
           );
-          localStorage.setItem('fluento_token', session.access_token);
-          if (session.refresh_token) {
-            localStorage.setItem('fluento_refresh', session.refresh_token);
-          }
           router.push('/journal');
         } catch (e) {
           console.error('Failed to sync OAuth', e);

@@ -73,19 +73,21 @@ export class ChallengesService {
       contextData: { topicId: dto.topicId, mode: dto.mode, prompt: topic?.['prompt'] },
     });
 
-    const thoughtScoreUpdates: Partial<Record<'fluency' | 'grammar' | 'vocabulary' | 'clarity' | 'argumentStrength', number>> = {};
-    if (result.scores.fluency !== undefined) thoughtScoreUpdates.fluency = result.scores.fluency;
-    if (result.scores.grammar !== undefined) thoughtScoreUpdates.grammar = result.scores.grammar;
-    if (result.scores.vocabulary !== undefined) thoughtScoreUpdates.vocabulary = result.scores.vocabulary;
-    if (result.scores.clarity !== undefined) thoughtScoreUpdates.clarity = result.scores.clarity;
-    if (result.scores.argumentStrength !== undefined) thoughtScoreUpdates.argumentStrength = result.scores.argumentStrength;
+    const thoughtScoreUpdates: Partial<Record<string, number>> = {};
+    if (result.scores.fluency !== undefined) thoughtScoreUpdates['fluency'] = result.scores.fluency;
+    if (result.scores.grammar !== undefined) thoughtScoreUpdates['grammar'] = result.scores.grammar;
+    if (result.scores.vocabulary !== undefined) thoughtScoreUpdates['vocabulary'] = result.scores.vocabulary;
+    if (result.scores.clarity !== undefined) thoughtScoreUpdates['clarity'] = result.scores.clarity;
+    // argument_strength maps to argumentStrength in SessionScores
+    const argScore = result.scores.argumentStrength;
+    if (argScore !== undefined) thoughtScoreUpdates['argument_strength'] = argScore;
 
     const scoreHistoryEntry = {
-      fluency: result.scores.fluency ?? 0,
-      grammar: result.scores.grammar ?? 0,
-      vocabulary: result.scores.vocabulary ?? 0,
-      clarity: result.scores.clarity ?? 0,
-      argumentStrength: result.scores.argumentStrength ?? 0,
+      fluency:           result.scores.fluency           ?? 0,
+      grammar:           result.scores.grammar           ?? 0,
+      vocabulary:        result.scores.vocabulary        ?? 0,
+      clarity:           result.scores.clarity           ?? 0,
+      argument_strength: result.scores.argumentStrength  ?? 0,
     };
 
     const report = await this.db.submitSessionTx(
